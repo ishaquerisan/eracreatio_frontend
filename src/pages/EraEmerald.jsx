@@ -1,6 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import {
+  FaBolt,
+  FaBook,
+  FaCar,
+  FaCheck,
+  FaChargingStation,
+  FaChevronLeft,
+  FaChevronRight,
+  FaChild,
+  FaCube,
+  FaDownload,
+  FaDroplet,
+  FaDumbbell,
+  FaLandmark,
+  FaLeaf,
+  FaLightbulb,
+  FaLocationDot,
+  FaMagnifyingGlass,
+  FaMagnifyingGlassPlus,
+  FaMapLocationDot,
+  FaPersonWalking,
+  FaRoad,
+  FaRulerCombined,
+  FaShieldHalved,
+  FaShoePrints,
+  FaStar,
+  FaSun,
+  FaTemperatureHalf,
+  FaTree,
+  FaTrowelBricks,
+  FaUsers,
+  FaVideo,
+  FaXmark,
+} from 'react-icons/fa6';
 import { villaProjects } from '../data/projectsData';
 import ContactPopup from '../components/ContactPopup';
 
@@ -32,9 +66,9 @@ const ExteriorSlider = () => {
       </AnimatePresence>
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
       <button onClick={() => setCur(p => (p - 1 + imgs.length) % imgs.length)}
-        className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-accent text-white w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10">‹</button>
+        className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-accent text-white w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"><FaChevronLeft /></button>
       <button onClick={() => setCur(p => (p + 1) % imgs.length)}
-        className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-accent text-white w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10">›</button>
+        className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-accent text-white w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"><FaChevronRight /></button>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {imgs.map((_, i) => (
           <button key={i} onClick={() => setCur(i)}
@@ -62,7 +96,7 @@ const InteriorGallery = () => {
             className="relative overflow-hidden rounded-lg sm:rounded-xl cursor-pointer group aspect-[4/3]">
             <img src={src} alt={`Interior ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-center justify-center">
-              <span className="text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity">⊕</span>
+              <span className="text-white text-3xl opacity-0 group-hover:opacity-100 transition-opacity"><FaMagnifyingGlassPlus /></span>
             </div>
           </motion.div>
         ))}
@@ -72,15 +106,15 @@ const InteriorGallery = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/92 z-50 flex items-center justify-center p-4"
             onClick={() => setLb(null)}>
-            <button className="absolute top-4 right-4 text-white/70 hover:text-accent text-3xl z-10" onClick={() => setLb(null)}>✕</button>
+            <button className="absolute top-4 right-4 text-white/70 hover:text-accent text-3xl z-10" onClick={() => setLb(null)}><FaXmark /></button>
             <p className="absolute top-5 left-1/2 -translate-x-1/2 text-white/50 text-sm">{lb + 1} / {imgs.length}</p>
             <button className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
-              onClick={e => { e.stopPropagation(); setLb(p => (p - 1 + imgs.length) % imgs.length); }}>‹</button>
+              onClick={e => { e.stopPropagation(); setLb(p => (p - 1 + imgs.length) % imgs.length); }}><FaChevronLeft /></button>
             <motion.img key={lb} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
               src={imgs[lb]} alt="Interior" className="max-w-full max-h-[80vh] rounded-xl object-contain shadow-2xl"
               onClick={e => e.stopPropagation()} />
             <button className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
-              onClick={e => { e.stopPropagation(); setLb(p => (p + 1) % imgs.length); }}>›</button>
+              onClick={e => { e.stopPropagation(); setLb(p => (p + 1) % imgs.length); }}><FaChevronRight /></button>
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
               {imgs.map((s, i) => (
                 <button key={i} onClick={e => { e.stopPropagation(); setLb(i); }}
@@ -148,6 +182,42 @@ const AvailabilityTable = () => (
   </div>
 );
 
+const amenityIconMap = {
+  solar: FaSun,
+  fitness: FaDumbbell,
+  lounge: FaUsers,
+  jogging: FaPersonWalking,
+  children: FaChild,
+  recreation: FaTree,
+  landscape: FaLeaf,
+  gathering: FaUsers,
+  pathway: FaShoePrints,
+  parking: FaCar,
+  security: FaShieldHalved,
+  cctv: FaVideo,
+  compound: FaCube,
+  roads: FaRoad,
+  lighting: FaLightbulb,
+  ev: FaChargingStation,
+  library: FaBook,
+};
+
+const engineeringItems = [
+  { icon: FaTrowelBricks, title: 'RCC Frame Structure', desc: 'Reinforced concrete construction for maximum strength and durability.' },
+  { icon: FaCube, title: 'Premium Materials', desc: 'Only certified, high-grade materials sourced from trusted suppliers.' },
+  { icon: FaRulerCombined, title: 'Precision Engineering', desc: 'Every dimension planned and executed with engineering accuracy.' },
+  { icon: FaMagnifyingGlass, title: 'Quality Inspections', desc: 'Multi-stage quality checks at every phase of construction.' },
+  { icon: FaDroplet, title: 'Waterproofing', desc: 'Advanced waterproofing systems for roofs, bathrooms, and basements.' },
+  { icon: FaBolt, title: 'Electrical Systems', desc: 'Concealed wiring with branded fittings and safety-compliant installations.' },
+  { icon: FaTemperatureHalf, title: 'Thermal Comfort', desc: 'Designed for natural ventilation and optimal thermal performance.' },
+  { icon: FaShieldHalved, title: 'Seismic Compliance', desc: 'Structures designed to meet seismic zone safety requirements.' },
+];
+
+const qrItems = [
+  { label: 'Scan for Location', icon: FaLocationDot, sub: 'Google Maps' },
+  { label: 'Scan for RERA', icon: FaLandmark, sub: 'RERA Portal' },
+];
+
 /* ── Main Page ── */
 const EraEmerald = () => {
   const wa = `https://wa.me/917907304050?text=${encodeURIComponent('Hi! I am interested in Era Emerald villa project.')}`;
@@ -172,13 +242,13 @@ const EraEmerald = () => {
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }} className="max-w-3xl">
             <span className="inline-block bg-accent text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-4 tracking-widest uppercase">Ongoing Project</span>
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-3 leading-tight">Era Emerald</h1>
-            <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2">📍 Kudukkimotta, Kannur</p>
+            <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2"><FaLocationDot /> Kudukkimotta, Kannur</p>
             <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">
               Experience refined living in a thoughtfully designed villa community that blends modern comfort, natural surroundings, and engineering excellence.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link to="/contact" className="inline-block bg-accent text-white px-7 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-center text-sm sm:text-base">Book a Site Visit</Link>
-              <button className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base">⬇ Download Brochure</button>
+              <button className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base"><FaDownload /> Download Brochure</button>
             </div>
           </motion.div>
         </div>
@@ -256,7 +326,7 @@ const EraEmerald = () => {
             {project.highlights.map((h, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
                 className="flex items-start gap-3 bg-bgLight rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
-                <span className="text-accent text-lg mt-0.5 flex-shrink-0">✦</span>
+                <FaStar className="text-accent text-sm mt-1.5 flex-shrink-0" />
                 <span className="text-primary font-medium text-sm sm:text-base">{h}</span>
               </motion.div>
             ))}
@@ -296,7 +366,10 @@ const EraEmerald = () => {
             {project.amenities.map((a, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 6) * 0.07 }}
                 className="flex gap-4 bg-bgLight rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow group">
-                <div className="text-2xl sm:text-3xl flex-shrink-0 group-hover:scale-110 transition-transform">{a.icon}</div>
+                {(() => {
+                  const AmenityIcon = amenityIconMap[a.icon] || FaCheck;
+                  return <AmenityIcon className="text-2xl sm:text-3xl text-accent flex-shrink-0 group-hover:scale-110 transition-transform" />;
+                })()}
                 <div>
                   <h4 className="font-semibold text-primary text-sm sm:text-base mb-1">{a.title}</h4>
                   <p className="text-textGrey text-xs sm:text-sm leading-relaxed">{a.desc}</p>
@@ -312,19 +385,10 @@ const EraEmerald = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <SH label="Built to Last" title="Engineering & Quality" light />
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-            {[
-              { icon: '🏗️', title: 'RCC Frame Structure', desc: 'Reinforced concrete construction for maximum strength and durability.' },
-              { icon: '🧱', title: 'Premium Materials', desc: 'Only certified, high-grade materials sourced from trusted suppliers.' },
-              { icon: '📐', title: 'Precision Engineering', desc: 'Every dimension planned and executed with engineering accuracy.' },
-              { icon: '🔍', title: 'Quality Inspections', desc: 'Multi-stage quality checks at every phase of construction.' },
-              { icon: '💧', title: 'Waterproofing', desc: 'Advanced waterproofing systems for roofs, bathrooms, and basements.' },
-              { icon: '⚡', title: 'Electrical Systems', desc: 'Concealed wiring with branded fittings and safety-compliant installations.' },
-              { icon: '🌡️', title: 'Thermal Comfort', desc: 'Designed for natural ventilation and optimal thermal performance.' },
-              { icon: '🛡️', title: 'Seismic Compliance', desc: 'Structures designed to meet seismic zone safety requirements.' },
-            ].map((item, i) => (
+            {engineeringItems.map((item, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 4) * 0.08 }}
                 className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-5 sm:p-6 hover:bg-white/15 transition-colors group">
-                <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">{item.icon}</div>
+                <item.icon className="text-3xl mb-3 group-hover:scale-110 transition-transform" />
                 <h4 className="font-semibold text-white text-sm sm:text-base mb-2">{item.title}</h4>
                 <p className="text-gray-300 text-xs sm:text-sm leading-relaxed">{item.desc}</p>
               </motion.div>
@@ -340,7 +404,7 @@ const EraEmerald = () => {
           <AvailabilityTable />
           <div className="text-center mt-8">
             <button className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
-              ⬇ Download Full Availability Chart
+              <FaDownload /> Download Full Availability Chart
             </button>
           </div>
         </div>
@@ -355,7 +419,7 @@ const EraEmerald = () => {
             <div className="lg:col-span-3">
               <div className="rounded-2xl overflow-hidden shadow-xl bg-gray-100 h-64 sm:h-80 lg:h-full min-h-[300px] flex items-center justify-center border border-gray-200">
                 <div className="text-center text-textGrey p-6">
-                  <div className="text-5xl mb-3">🗺️</div>
+                  <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
                   <p className="font-semibold text-primary text-base mb-1">Google Map</p>
                   <p className="text-sm text-textGrey">Kudukkimotta, Kannur, Kerala</p>
                   <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer"
@@ -369,9 +433,9 @@ const EraEmerald = () => {
             <div className="lg:col-span-2 space-y-5">
               {/* QR Codes */}
               <div className="grid grid-cols-2 gap-4">
-                {[{ label: 'Scan for Location', icon: '📍', sub: 'Google Maps' }, { label: 'Scan for RERA', icon: '🏛', sub: 'RERA Portal' }].map((qr, i) => (
+                {qrItems.map((qr, i) => (
                   <div key={i} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100">{qr.icon}</div>
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100"><qr.icon className="text-accent" /></div>
                     <p className="text-xs font-semibold text-primary">{qr.label}</p>
                     <p className="text-xs text-textGrey mt-0.5">{qr.sub}</p>
                   </div>
@@ -388,7 +452,7 @@ const EraEmerald = () => {
                 <ul className="space-y-2.5">
                   {project.locationAdvantages.map((adv, i) => (
                     <li key={i} className="flex items-center gap-3 text-textGrey text-sm">
-                      <span className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center text-xs flex-shrink-0">✓</span>
+                      <span className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center text-xs flex-shrink-0"><FaCheck /></span>
                       {adv}
                     </li>
                   ))}

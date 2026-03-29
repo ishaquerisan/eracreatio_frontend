@@ -1,5 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import {
+  FaArrowRightLong,
+  FaEnvelope,
+  FaFacebookF,
+  FaInstagram,
+  FaLinkedinIn,
+  FaLocationDot,
+  FaPhone,
+} from 'react-icons/fa6';
 
 const Footer = () => {
   return (
@@ -9,7 +18,7 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="text-center sm:text-left">
             <Link to="/">
-              <img src="/logo.svg" alt="Era Creatio Developers LLP" className="h-16 w-auto mb-3 sm:mb-4 mx-auto sm:mx-0 brightness-0 invert" />
+              <img src="/logo.png" alt="Era Creatio Developers LLP" className="h-16 w-auto mb-3 sm:mb-4 mx-auto sm:mx-0 brightness-0 invert" />
             </Link>
             <p className="text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">
               Redefining luxury living in Kerala since 2018. Building dreams, creating legacies.
@@ -17,15 +26,15 @@ const Footer = () => {
             <div className="flex space-x-3 sm:space-x-4 justify-center sm:justify-start">
               <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
-                <span className="text-lg sm:text-xl">f</span>
+                <FaFacebookF className="text-sm sm:text-base" />
               </a>
               <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
-                <span className="text-lg sm:text-xl">📷</span>
+                <FaInstagram className="text-base sm:text-lg" />
               </a>
               <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
-                <span className="text-lg sm:text-xl">in</span>
+                <FaLinkedinIn className="text-sm sm:text-base" />
               </a>
             </div>
           </div>
@@ -47,19 +56,19 @@ const Footer = () => {
             <h3 className="font-serif text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Contact Us</h3>
             <ul className="space-y-2 sm:space-y-3 text-gray-400 text-sm sm:text-base">
               <li className="flex items-start justify-center sm:justify-start">
-                <span className="mr-2">📍</span>
+                <FaLocationDot className="mr-2 mt-1 shrink-0" />
                 <span>AP Complex, Kuttikattor,<br />Calicut, Kerala - 673008</span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
-                <span className="mr-2">📞</span>
+                <FaPhone className="mr-2 shrink-0" />
                 <span>+91 7907 30 40 50</span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
-                <span className="mr-2">📞</span>
+                <FaPhone className="mr-2 shrink-0" />
                 <span>+91 96452 87355</span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
-                <span className="mr-2">✉️</span>
+                <FaEnvelope className="mr-2 shrink-0" />
                 <span className="break-all">eracreatiodevelopers@gmail.com</span>
               </li>
             </ul>
@@ -76,7 +85,7 @@ const Footer = () => {
                 className="flex-1 px-3 sm:px-4 py-2 bg-white bg-opacity-10 rounded-luxury sm:rounded-l-luxury sm:rounded-r-none focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base mb-2 sm:mb-0"
               />
               <button className="bg-accent px-4 sm:px-6 py-2 rounded-luxury sm:rounded-l-none sm:rounded-r-luxury hover:bg-opacity-90 transition-colors text-sm sm:text-base">
-                →
+                <FaArrowRightLong className="mx-auto" />
               </button>
             </div>
           </div>

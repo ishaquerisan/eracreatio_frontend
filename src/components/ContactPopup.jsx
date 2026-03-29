@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaCircleCheck, FaHouse, FaXmark } from 'react-icons/fa6';
 
 const ContactPopup = ({ onClose }) => {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '' });
@@ -50,7 +51,7 @@ const ContactPopup = ({ onClose }) => {
             className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-accent hover:text-white text-gray-500 flex items-center justify-center transition-colors text-lg leading-none"
             aria-label="Close"
           >
-            ✕
+            <FaXmark />
           </button>
 
           <div className="px-6 sm:px-8 pt-7 pb-8">
@@ -58,7 +59,7 @@ const ContactPopup = ({ onClose }) => {
               <>
                 {/* Heading */}
                 <div className="text-center mb-6">
-                  <div className="text-3xl mb-3">🏡</div>
+                  <FaHouse className="text-3xl mb-3 mx-auto text-accent" />
                   <h2 className="font-serif text-xl sm:text-2xl font-bold text-primary leading-snug">
                     Enter Your Details and Get a<br />
                     Call Back from Our Dedicated<br />
@@ -123,7 +124,7 @@ const ContactPopup = ({ onClose }) => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-6"
               >
-                <div className="text-5xl mb-4">✅</div>
+                <FaCircleCheck className="text-5xl mb-4 mx-auto text-green-500" />
                 <h3 className="font-serif text-xl font-bold text-primary mb-2">Thank You!</h3>
                 <p className="text-textGrey text-sm">
                   Our support team will call you back shortly.

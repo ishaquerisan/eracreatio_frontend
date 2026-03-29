@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import {
+  FaArrowUp,
+  FaChevronLeft,
+  FaChevronRight,
+  FaImages,
+  FaLocationDot,
+  FaMagnifyingGlassPlus,
+  FaXmark,
+} from 'react-icons/fa6';
 
 const PREVIEW_LIMIT = 6;
 
@@ -22,7 +32,7 @@ const Lightbox = ({ images, startIndex, onClose }) => {
         onClick={onClose}
         className="absolute top-4 right-4 text-white/70 hover:text-accent text-3xl sm:text-4xl leading-none z-10"
       >
-        ✕
+        <FaXmark />
       </button>
 
       {/* Counter */}
@@ -35,7 +45,7 @@ const Lightbox = ({ images, startIndex, onClose }) => {
         onClick={e => { e.stopPropagation(); prev(); }}
         className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
       >
-        ‹
+        <FaChevronLeft />
       </button>
 
       {/* Image */}
@@ -53,7 +63,7 @@ const Lightbox = ({ images, startIndex, onClose }) => {
           className="max-w-full max-h-[75vh] rounded-xl object-contain shadow-2xl"
         />
         <div className="mt-4 flex items-center gap-2 text-white/80 text-sm sm:text-base">
-          <span className="text-accent">📍</span>
+          <FaLocationDot className="text-accent" />
           <span>{images[current].location}</span>
         </div>
       </motion.div>
@@ -63,7 +73,7 @@ const Lightbox = ({ images, startIndex, onClose }) => {
         onClick={e => { e.stopPropagation(); next(); }}
         className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
       >
-        ›
+        <FaChevronRight />
       </button>
 
       {/* Thumbnail strip */}
@@ -104,7 +114,7 @@ const ImageCard = ({ image, index, onClick }) => (
     {/* Caption overlay — slides up on hover */}
     <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-3 px-4">
       <p className="text-white text-xs sm:text-sm font-medium flex items-center gap-1.5">
-        <span className="text-accent">📍</span>
+        <FaLocationDot className="text-accent" />
         {image.location}
       </p>
     </div>
@@ -112,25 +122,31 @@ const ImageCard = ({ image, index, onClick }) => (
     {/* Always-visible subtle bottom bar on mobile */}
     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent pt-6 pb-2 px-3 sm:hidden">
       <p className="text-white text-xs font-medium flex items-center gap-1">
-        <span>📍</span>{image.location}
+        <FaLocationDot />{image.location}
       </p>
     </div>
 
     {/* Zoom icon */}
     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
       <div className="bg-black/50 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm">
-        ⊕
+        <FaMagnifyingGlassPlus />
       </div>
     </div>
   </motion.div>
 );
 
 /* ── Main exported component ── */
-const ResidenceGallery = ({ images, category, galleryPath }) => {
+const ResidenceGallery = ({
+  images,
+  category,
+  showExpandControls = true,
+  viewGalleryPath,
+  viewGalleryLabel = 'View Gallery',
+}) => {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [showAll, setShowAll] = useState(false);
 
-  const displayed = showAll ? images : images.slice(0, PREVIEW_LIMIT);
+  const displayed = showExpandControls && !showAll ? images.slice(0, PREVIEW_LIMIT) : images;
   const hasMore = images.length > PREVIEW_LIMIT;
 
   return (
@@ -148,14 +164,14 @@ const ResidenceGallery = ({ images, category, galleryPath }) => {
       </div>
 
       {/* View More / Collapse */}
-      {hasMore && (
+      {showExpandControls && hasMore && (
         <div className="text-center mt-8 sm:mt-10">
           {!showAll ? (
             <button
               onClick={() => setShowAll(true)}
               className="inline-flex items-center gap-2 border-2 border-accent text-accent px-7 sm:px-8 py-3 sm:py-3.5 rounded-luxury hover:bg-accent hover:text-white transition-all font-medium text-sm sm:text-base"
             >
-              <span>🖼</span>
+              <FaImages />
               Explore Full Gallery
               <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full ml-1">
                 +{images.length - PREVIEW_LIMIT}
@@ -166,9 +182,22 @@ const ResidenceGallery = ({ images, category, galleryPath }) => {
               onClick={() => setShowAll(false)}
               className="inline-flex items-center gap-2 border-2 border-gray-300 text-textGrey px-7 sm:px-8 py-3 sm:py-3.5 rounded-luxury hover:border-accent hover:text-accent transition-all font-medium text-sm sm:text-base"
             >
-              Show Less ↑
+              Show Less <FaArrowUp />
             </button>
           )}
+        </div>
+      )}
+
+      {/* External gallery navigation */}
+      {viewGalleryPath && (
+        <div className="text-center mt-8 sm:mt-10">
+          <Link
+            to={viewGalleryPath}
+            className="inline-flex items-center gap-2 bg-accent text-white px-7 sm:px-8 py-3 sm:py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base"
+          >
+            <FaImages />
+            {viewGalleryLabel}
+          </Link>
         </div>
       )}
 

@@ -1,16 +1,25 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import {
+  FaLandmark,
+  FaLeaf,
+  FaLocationDot,
+  FaMapLocationDot,
+  FaRulerCombined,
+  FaShieldHalved,
+  FaTrowelBricks,
+} from 'react-icons/fa6';
 import { commercialProjects, commercialGallery } from '../data/projectsData';
 import ResidenceGallery from '../components/ResidenceGallery';
 
 const highlights = [
-  { icon: '🗺️', title: 'Strategic Project Planning', desc: 'Every project is planned with a focus on accessibility, site efficiency, and long-term usability.' },
-  { icon: '🏗️', title: 'Structural Strength & Durability', desc: 'Designed and executed with engineering precision to ensure safety, stability, and long service life.' },
-  { icon: '📐', title: 'Functional Space Design', desc: 'Optimized layouts that enhance usability, movement, and operational efficiency.' },
-  { icon: '🛡️', title: 'Compliant Safety Systems', desc: 'Designed in accordance with fire and safety regulations for secure and reliable usage.' },
-  { icon: '🏛️', title: 'Modern Architectural Design', desc: 'Contemporary designs that balance aesthetics with practicality and performance.' },
-  { icon: '🌱', title: 'Efficient & Sustainable Construction', desc: 'Focus on cost-effective, energy-conscious, and environmentally responsible building practices.' },
+  { icon: FaMapLocationDot, title: 'Strategic Project Planning', desc: 'Every project is planned with a focus on accessibility, site efficiency, and long-term usability.' },
+  { icon: FaTrowelBricks, title: 'Structural Strength & Durability', desc: 'Designed and executed with engineering precision to ensure safety, stability, and long service life.' },
+  { icon: FaRulerCombined, title: 'Functional Space Design', desc: 'Optimized layouts that enhance usability, movement, and operational efficiency.' },
+  { icon: FaShieldHalved, title: 'Compliant Safety Systems', desc: 'Designed in accordance with fire and safety regulations for secure and reliable usage.' },
+  { icon: FaLandmark, title: 'Modern Architectural Design', desc: 'Contemporary designs that balance aesthetics with practicality and performance.' },
+  { icon: FaLeaf, title: 'Efficient & Sustainable Construction', desc: 'Focus on cost-effective, energy-conscious, and environmentally responsible building practices.' },
 ];
 
 const SH = ({ label, title, light = false }) => (
@@ -63,7 +72,7 @@ const CommercialProjects = () => {
             {highlights.map((h, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
                 className="bg-white p-6 sm:p-8 rounded-xl sm:rounded-2xl shadow-md hover:shadow-xl transition-all group">
-                <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition-transform">{h.icon}</div>
+                <h.icon className="text-3xl sm:text-4xl mb-4 text-accent group-hover:scale-110 transition-transform" />
                 <h3 className="font-serif text-lg sm:text-xl font-bold text-primary mb-2">{h.title}</h3>
                 <p className="text-textGrey text-sm sm:text-base leading-relaxed">{h.desc}</p>
               </motion.div>
@@ -101,7 +110,7 @@ const CommercialProjects = () => {
                 </div>
                 <div className="p-5 sm:p-6">
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary mb-1">{project.name}</h3>
-                  <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center gap-1.5"><span>📍</span>{project.location}</p>
+                  <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center gap-1.5"><FaLocationDot className="text-accent" />{project.location}</p>
                   <div className="flex justify-between text-xs sm:text-sm text-textGrey mb-4">
                     <span><strong className="text-primary">{project.landArea}</strong> Land</span>
                     <span><strong className="text-primary">{project.units}</strong></span>
@@ -130,7 +139,13 @@ const CommercialProjects = () => {
               </button>
             ))}
           </div>
-          <ResidenceGallery images={commercialGallery[galleryTab]} category={galleryTab} />
+          <ResidenceGallery
+            images={commercialGallery[galleryTab]}
+            category={galleryTab}
+            showExpandControls={false}
+            viewGalleryPath="/commercial-projects/gallery"
+            viewGalleryLabel="View Gallery"
+          />
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { FaLocationDot } from 'react-icons/fa6';
 
 const ProjectCard = ({ project, index }) => {
   return (
@@ -38,7 +39,7 @@ const ProjectCard = ({ project, index }) => {
           {project.name}
         </h3>
         <p className="text-textGrey text-sm sm:text-base mb-4 flex items-center">
-          <span className="mr-2">📍</span>
+          <FaLocationDot className="mr-2 text-accent" />
           {project.location}
         </p>
 

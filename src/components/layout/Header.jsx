@@ -35,7 +35,7 @@ const Header = () => {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       className={`fixed w-full top-0 z-50 transition-all duration-300 ${
-        solidBg ? 'bg-white shadow-lg' : 'bg-transparent'
+        solidBg ? 'bg-white shadow-lg' : 'bg-white/70 backdrop-blur-sm'
       }`}
     >
       <div className="container mx-auto px-4 lg:px-8">
@@ -43,7 +43,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="Era Creatio Developers LLP"
               className="h-12 lg:h-14 w-auto"
             />
@@ -55,9 +55,9 @@ const Header = () => {
               <div key={link.name} className="relative group">
                 <Link
                   to={link.path}
-                  className={`text-sm font-medium transition-colors hover:text-accent ${
-                    solidBg ? 'text-primary' : 'text-white'
-                  } ${location.pathname === link.path ? 'text-accent' : ''}`}
+                  className={`text-sm font-medium transition-colors hover:text-accent text-primary ${
+                    location.pathname === link.path ? 'text-accent' : ''
+                  }`}
                   onMouseEnter={() => link.hasDropdown && setVillaDropdownOpen(true)}
                 >
                   {link.name}
@@ -97,7 +97,7 @@ const Header = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className={`lg:hidden ${solidBg ? 'text-primary' : 'text-white'}`}
+            className="lg:hidden text-primary"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {mobileMenuOpen ? (

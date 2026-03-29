@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { FaClock, FaEnvelope, FaLocationDot, FaPhone } from 'react-icons/fa6';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -57,7 +58,7 @@ const Contact = () => {
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-start space-x-3 sm:space-x-4">
                   <div className="bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 text-lg sm:text-xl">
-                    📍
+                    <FaLocationDot />
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Address</h3>
@@ -70,7 +71,7 @@ const Contact = () => {
 
                 <div className="flex items-start space-x-3 sm:space-x-4">
                   <div className="bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 text-lg sm:text-xl">
-                    📞
+                    <FaPhone />
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Phone</h3>
@@ -81,7 +82,7 @@ const Contact = () => {
 
                 <div className="flex items-start space-x-3 sm:space-x-4">
                   <div className="bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 text-lg sm:text-xl">
-                    ✉️
+                    <FaEnvelope />
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Email</h3>
@@ -91,7 +92,7 @@ const Contact = () => {
 
                 <div className="flex items-start space-x-3 sm:space-x-4">
                   <div className="bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0 text-lg sm:text-xl">
-                    🕐
+                    <FaClock />
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Working Hours</h3>

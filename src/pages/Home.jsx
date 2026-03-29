@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { FaBuilding, FaLeaf, FaLocationDot, FaMagnifyingGlass, FaScaleBalanced } from 'react-icons/fa6';
 import HeroSlider from '../components/HeroSlider';
 import CounterSection from '../components/CounterSection';
 import CTASection from '../components/CTASection';
@@ -10,10 +11,10 @@ const Home = () => {
   const allProjects = [...villaProjects.ongoing, ...villaProjects.upcoming];
 
   const whyChooseUs = [
-    { icon: '🔍', title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing and documentation.' },
-    { icon: '⚖️', title: 'Legality', description: '100% RERA and KMBR compliance for your peace of mind.' },
-    { icon: '🌱', title: 'Eco-Friendly', description: 'Sustainable building practices for a greener tomorrow.' },
-    { icon: '🏗️', title: 'Engineering Excellence', description: 'Engineering-led project supervision ensuring quality.' }
+    { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing and documentation.' },
+    { icon: FaScaleBalanced, title: 'Legality', description: '100% RERA and KMBR compliance for your peace of mind.' },
+    { icon: FaLeaf, title: 'Eco-Friendly', description: 'Sustainable building practices for a greener tomorrow.' },
+    { icon: FaBuilding, title: 'Engineering Excellence', description: 'Engineering-led project supervision ensuring quality.' }
   ];
 
   return (
@@ -111,7 +112,7 @@ const Home = () => {
                 <div className="p-5 sm:p-6">
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary mb-1">{project.name}</h3>
                   <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center">
-                    <span className="mr-2">📍</span>{project.location}
+                    <FaLocationDot className="mr-2 text-accent" />{project.location}
                   </p>
                   <div className="flex justify-between text-xs sm:text-sm text-textGrey mb-4">
                     <span><strong className="text-primary">{project.landArea}</strong> Land</span>
@@ -172,9 +173,7 @@ const Home = () => {
                 transition={{ delay: index * 0.1, duration: 0.6 }}
                 className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl sm:rounded-2xl text-center hover:shadow-xl transition-all group"
               >
-                <div className="text-4xl sm:text-5xl mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
-                  {item.icon}
-                </div>
+                <item.icon className="text-3xl sm:text-4xl mb-3 sm:mb-4 text-accent mx-auto group-hover:scale-110 transition-transform" />
                 <h3 className="font-serif text-lg sm:text-xl font-bold text-primary mb-2 sm:mb-3">
                   {item.title}
                 </h3>

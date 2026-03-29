@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { FaLocationDot } from 'react-icons/fa6';
 import { villaProjects } from '../data/projectsData';
 
 const VillaProjects = () => {
@@ -67,7 +68,7 @@ const VillaProjects = () => {
                 <div className="p-5 sm:p-6">
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary mb-1">{project.name}</h3>
                   <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center">
-                    <span className="mr-2">📍</span>{project.location}
+                    <FaLocationDot className="mr-2 text-accent" />{project.location}
                   </p>
                   <div className="flex justify-between text-xs sm:text-sm text-textGrey mb-4">
                     <span><strong className="text-primary">{project.landArea}</strong> Land</span>

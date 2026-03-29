@@ -1,13 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { FaBullseye, FaCheck, FaHandshake, FaLightbulb, FaStar } from 'react-icons/fa6';
 import { teamMembers } from '../data/projectsData';
 
 const About = () => {
   const values = [
-    { icon: '🎯', title: 'Vision', desc: 'To be Kerala\'s most trusted real estate developer' },
-    { icon: '💡', title: 'Innovation', desc: 'Embracing futuristic technologies in construction' },
-    { icon: '🤝', title: 'Integrity', desc: 'Building trust through transparency and honesty' },
-    { icon: '🌟', title: 'Excellence', desc: 'Uncompromising quality in every project' }
+    { icon: FaBullseye, title: 'Vision', desc: 'To be Kerala\'s most trusted real estate developer' },
+    { icon: FaLightbulb, title: 'Innovation', desc: 'Embracing futuristic technologies in construction' },
+    { icon: FaHandshake, title: 'Integrity', desc: 'Building trust through transparency and honesty' },
+    { icon: FaStar, title: 'Excellence', desc: 'Uncompromising quality in every project' }
   ];
 
   return (
@@ -131,9 +132,7 @@ const About = () => {
                 transition={{ delay: index * 0.1 }}
                 className="bg-white p-8 rounded-2xl shadow-lg text-center hover:shadow-xl transition-all group"
               >
-                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">
-                  {value.icon}
-                </div>
+                <value.icon className="mx-auto text-4xl mb-4 text-accent group-hover:scale-110 transition-transform" />
                 <h3 className="font-serif text-xl font-bold text-primary mb-3">
                   {value.title}
                 </h3>
@@ -223,7 +222,7 @@ const About = () => {
                 transition={{ delay: index * 0.1 }}
                 className="flex items-start space-x-4 bg-white p-6 rounded-2xl shadow-lg"
               >
-                <div className="text-accent text-2xl">✓</div>
+                <FaCheck className="text-accent text-xl mt-1 shrink-0" />
                 <div>
                   <h3 className="font-serif text-xl font-bold text-primary mb-2">
                     {item.title}

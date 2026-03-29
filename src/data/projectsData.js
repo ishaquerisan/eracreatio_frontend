@@ -37,23 +37,23 @@ export const villaProjects = {
         "Engineering-led construction"
       ],
       amenities: [
-        { icon: "☀️", title: "Solar-Powered Common Areas", desc: "Energy-efficient solar systems power common facilities, ensuring reduced electricity costs and a sustainable lifestyle." },
-        { icon: "🏋️", title: "Fitness Zone", desc: "Stay active and healthy with access to a dedicated fitness space designed for your daily workouts." },
-        { icon: "🏛", title: "Community Lounge", desc: "A thoughtfully designed space where residents can relax, socialize, and celebrate special moments together." },
-        { icon: "🏃", title: "Jogging & Walking Track", desc: "Enjoy refreshing morning walks or evening runs within a safe and serene environment." },
-        { icon: "🧒", title: "Children's Play Area", desc: "A secure and engaging space for children to play, explore, and create lasting memories." },
-        { icon: "🌿", title: "Family Recreation Park", desc: "Open green areas designed for families to unwind, relax, and spend quality time together." },
-        { icon: "🌴", title: "Landscaped Green Zones", desc: "Beautifully designed landscapes with lush greenery enhance the overall living experience." },
-        { icon: "🎉", title: "Outdoor Gathering Space", desc: "Dedicated open areas for hosting small events, celebrations, and community gatherings." },
-        { icon: "🦶", title: "Wellness Walk Pathway", desc: "A specially designed pathway that promotes relaxation and well-being through mindful walking." },
-        { icon: "🚗", title: "Visitor Parking Area", desc: "Convenient parking spaces for guests, ensuring ease and comfort for visitors." },
-        { icon: "🛡", title: "Entrance Security Cabin", desc: "A professionally managed security point at the entrance ensures controlled access to the community." },
-        { icon: "📹", title: "24/7 CCTV Surveillance", desc: "Advanced surveillance systems ensure safety and peace of mind for all residents." },
-        { icon: "🧱", title: "Compound Wall with Gated Access", desc: "A well-defined compound wall provides enhanced privacy and security." },
-        { icon: "🛣", title: "Internal Road Network", desc: "Well-planned and smoothly finished internal roads for easy and safe vehicle movement." },
-        { icon: "💡", title: "Common Area Lighting", desc: "Strategically placed lighting ensures visibility and safety throughout the community at night." },
-        { icon: "⚡", title: "EV Charging Provision", desc: "Provision for electric vehicle charging to support modern and eco-friendly mobility." },
-        { icon: "📚", title: "Reading Corner / Mini Library", desc: "A peaceful space dedicated to reading, relaxation, and quiet time." }
+        { icon: "solar", title: "Solar-Powered Common Areas", desc: "Energy-efficient solar systems power common facilities, ensuring reduced electricity costs and a sustainable lifestyle." },
+        { icon: "fitness", title: "Fitness Zone", desc: "Stay active and healthy with access to a dedicated fitness space designed for your daily workouts." },
+        { icon: "lounge", title: "Community Lounge", desc: "A thoughtfully designed space where residents can relax, socialize, and celebrate special moments together." },
+        { icon: "jogging", title: "Jogging & Walking Track", desc: "Enjoy refreshing morning walks or evening runs within a safe and serene environment." },
+        { icon: "children", title: "Children's Play Area", desc: "A secure and engaging space for children to play, explore, and create lasting memories." },
+        { icon: "recreation", title: "Family Recreation Park", desc: "Open green areas designed for families to unwind, relax, and spend quality time together." },
+        { icon: "landscape", title: "Landscaped Green Zones", desc: "Beautifully designed landscapes with lush greenery enhance the overall living experience." },
+        { icon: "gathering", title: "Outdoor Gathering Space", desc: "Dedicated open areas for hosting small events, celebrations, and community gatherings." },
+        { icon: "pathway", title: "Wellness Walk Pathway", desc: "A specially designed pathway that promotes relaxation and well-being through mindful walking." },
+        { icon: "parking", title: "Visitor Parking Area", desc: "Convenient parking spaces for guests, ensuring ease and comfort for visitors." },
+        { icon: "security", title: "Entrance Security Cabin", desc: "A professionally managed security point at the entrance ensures controlled access to the community." },
+        { icon: "cctv", title: "24/7 CCTV Surveillance", desc: "Advanced surveillance systems ensure safety and peace of mind for all residents." },
+        { icon: "compound", title: "Compound Wall with Gated Access", desc: "A well-defined compound wall provides enhanced privacy and security." },
+        { icon: "roads", title: "Internal Road Network", desc: "Well-planned and smoothly finished internal roads for easy and safe vehicle movement." },
+        { icon: "lighting", title: "Common Area Lighting", desc: "Strategically placed lighting ensures visibility and safety throughout the community at night." },
+        { icon: "ev", title: "EV Charging Provision", desc: "Provision for electric vehicle charging to support modern and eco-friendly mobility." },
+        { icon: "library", title: "Reading Corner / Mini Library", desc: "A peaceful space dedicated to reading, relaxation, and quiet time." }
       ],
       locationAdvantages: [
         "Easy road access",
@@ -139,19 +139,19 @@ export const teamMembers = [
     name: "Majnaz V",
     role: "Civil Engineer",
     designation: "Technical Lead",
-    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400"
+    image: "/teamMembers/Majnaz%20v.png"
   },
   {
     name: "P M Junaid",
     role: "Civil Engineer",
     designation: "Project Management",
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400"
+    image: "/teamMembers/P%20M%20Junaid.png"
   },
   {
     name: "Rafi",
     role: "Architect",
     designation: "Design Head",
-    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"
+    image: "/teamMembers/Rafi.png"
   }
 ];
 
