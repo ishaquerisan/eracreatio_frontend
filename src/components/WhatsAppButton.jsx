@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { CONTACT_DETAILS } from '../data/contactDetails';
 
 const WhatsAppButton = () => {
-  const phoneNumber = '917907304050';
   const message = 'Hello! I am interested in Era Creatio projects.';
   
-  const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  const whatsappUrl = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(message)}`;
 
   return (
     <motion.a

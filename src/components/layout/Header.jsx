@@ -63,25 +63,6 @@ const Header = () => {
                   {link.name}
                 </Link>
                 
-                {link.hasDropdown && villaDropdownOpen && (
-                  <div
-                    className="absolute top-full left-0 mt-2 w-48 bg-white shadow-xl rounded-lg py-2"
-                    onMouseLeave={() => setVillaDropdownOpen(false)}
-                  >
-                    <Link
-                      to="/villa-projects?tab=ongoing"
-                      className="block px-4 py-2 text-sm text-primary hover:bg-bgLight hover:text-accent transition-colors"
-                    >
-                      Ongoing Projects
-                    </Link>
-                    <Link
-                      to="/villa-projects?tab=completed"
-                      className="block px-4 py-2 text-sm text-primary hover:bg-bgLight hover:text-accent transition-colors"
-                    >
-                      Completed Projects
-                    </Link>
-                  </div>
-                )}
               </div>
             ))}
           </nav>

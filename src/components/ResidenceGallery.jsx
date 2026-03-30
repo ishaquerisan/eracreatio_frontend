@@ -132,6 +132,12 @@ const ImageCard = ({ image, index, onClick }) => (
         <FaMagnifyingGlassPlus />
       </div>
     </div>
+
+    {Array.isArray(image.galleryImages) && image.galleryImages.length > 1 && (
+      <div className="absolute top-3 left-3 bg-black/60 text-white text-[10px] sm:text-xs px-2 py-1 rounded-full">
+        {image.galleryImages.length} photos
+      </div>
+    )}
   </motion.div>
 );
 
@@ -143,11 +149,35 @@ const ResidenceGallery = ({
   viewGalleryPath,
   viewGalleryLabel = 'View Gallery',
 }) => {
-  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [lightboxState, setLightboxState] = useState(null);
   const [showAll, setShowAll] = useState(false);
 
   const displayed = showExpandControls && !showAll ? images.slice(0, PREVIEW_LIMIT) : images;
   const hasMore = images.length > PREVIEW_LIMIT;
+
+  const openLightbox = (image, index) => {
+    const galleryImages = Array.isArray(image.galleryImages)
+      ? image.galleryImages
+          .map((src, imageIndex) => ({
+            id: `${image.id}-gallery-${imageIndex}`,
+            src,
+            location: image.location,
+          }))
+          .filter((item) => item.src)
+      : [];
+
+    if (galleryImages.length > 0) {
+      const startIndex = Math.max(
+        galleryImages.findIndex((item) => item.src === image.src),
+        0
+      );
+
+      setLightboxState({ images: galleryImages, startIndex });
+      return;
+    }
+
+    setLightboxState({ images: displayed, startIndex: index });
+  };
 
   return (
     <>
@@ -158,7 +188,7 @@ const ResidenceGallery = ({
             key={img.id}
             image={img}
             index={i}
-            onClick={() => setLightboxIndex(i)}
+            onClick={() => openLightbox(img, i)}
           />
         ))}
       </div>
@@ -203,11 +233,11 @@ const ResidenceGallery = ({
 
       {/* Lightbox */}
       <AnimatePresence>
-        {lightboxIndex !== null && (
+        {lightboxState && (
           <Lightbox
-            images={displayed}
-            startIndex={lightboxIndex}
-            onClose={() => setLightboxIndex(null)}
+            images={lightboxState.images}
+            startIndex={lightboxState.startIndex}
+            onClose={() => setLightboxState(null)}
           />
         )}
       </AnimatePresence>

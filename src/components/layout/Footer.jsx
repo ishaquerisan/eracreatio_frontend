@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FaArrowRightLong,
@@ -9,8 +9,34 @@ import {
   FaLocationDot,
   FaPhone,
 } from 'react-icons/fa6';
+import { CONTACT_DETAILS } from '../../data/contactDetails';
+import { postNewsletterSubscription } from '../../services/api';
 
 const Footer = () => {
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState('idle');
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!newsletterEmail.trim()) {
+      return;
+    }
+
+    setNewsletterStatus('submitting');
+
+    try {
+      await postNewsletterSubscription({
+        email: newsletterEmail,
+        source: 'footer',
+      });
+      setNewsletterStatus('success');
+      setNewsletterEmail('');
+    } catch (_error) {
+      setNewsletterStatus('error');
+    }
+  };
+
   return (
     <footer className="bg-primary text-white pt-12 sm:pt-16 pb-6 sm:pb-8">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,19 +83,23 @@ const Footer = () => {
             <ul className="space-y-2 sm:space-y-3 text-gray-400 text-sm sm:text-base">
               <li className="flex items-start justify-center sm:justify-start">
                 <FaLocationDot className="mr-2 mt-1 shrink-0" />
-                <span>AP Complex, Kuttikattor,<br />Calicut, Kerala - 673008</span>
+                <span>
+                  {CONTACT_DETAILS.addressLines[0]}
+                  <br />
+                  {CONTACT_DETAILS.addressLines[1]}
+                </span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
                 <FaPhone className="mr-2 shrink-0" />
-                <span>+91 7907 30 40 50</span>
+                <span>{CONTACT_DETAILS.phones[0]}</span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
                 <FaPhone className="mr-2 shrink-0" />
-                <span>+91 96452 87355</span>
+                <span>{CONTACT_DETAILS.phones[1]}</span>
               </li>
               <li className="flex items-center justify-center sm:justify-start">
                 <FaEnvelope className="mr-2 shrink-0" />
-                <span className="break-all">eracreatiodevelopers@gmail.com</span>
+                <span className="break-all">{CONTACT_DETAILS.email}</span>
               </li>
             </ul>
           </div>
@@ -78,16 +108,29 @@ const Footer = () => {
           <div className="text-center sm:text-left">
             <h3 className="font-serif text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Newsletter</h3>
             <p className="text-gray-400 text-sm sm:text-base mb-3 sm:mb-4">Subscribe to get updates on new projects and offers.</p>
-            <div className="flex flex-col sm:flex-row">
+            <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row">
               <input
                 type="email"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
                 placeholder="Your email"
+                required
                 className="flex-1 px-3 sm:px-4 py-2 bg-white bg-opacity-10 rounded-luxury sm:rounded-l-luxury sm:rounded-r-none focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base mb-2 sm:mb-0"
               />
-              <button className="bg-accent px-4 sm:px-6 py-2 rounded-luxury sm:rounded-l-none sm:rounded-r-luxury hover:bg-opacity-90 transition-colors text-sm sm:text-base">
+              <button
+                type="submit"
+                disabled={newsletterStatus === 'submitting'}
+                className="bg-accent px-4 sm:px-6 py-2 rounded-luxury sm:rounded-l-none sm:rounded-r-luxury hover:bg-opacity-90 transition-colors text-sm sm:text-base disabled:opacity-60"
+              >
                 <FaArrowRightLong className="mx-auto" />
               </button>
-            </div>
+            </form>
+            {newsletterStatus === 'success' && (
+              <p className="text-xs sm:text-sm text-green-300 mt-2">Subscribed successfully.</p>
+            )}
+            {newsletterStatus === 'error' && (
+              <p className="text-xs sm:text-sm text-red-300 mt-2">Could not subscribe right now.</p>
+            )}
           </div>
         </div>
 

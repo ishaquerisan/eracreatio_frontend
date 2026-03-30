@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaClock, FaEnvelope, FaLocationDot, FaPhone } from 'react-icons/fa6';
+import { CONTACT_DETAILS } from '../data/contactDetails';
+import { postContactInquiry } from '../services/api';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -9,15 +11,50 @@ const Contact = () => {
     interest: '',
     message: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState({ type: '', text: '' });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Thank you for your inquiry! We will contact you soon.');
-    setFormData({ name: '', phone: '', interest: '', message: '' });
+    setIsSubmitting(true);
+    setSubmitMessage({ type: '', text: '' });
+
+    if (!/^\d{10}$/.test(formData.phone)) {
+      setSubmitMessage({ type: 'error', text: 'Phone number must be exactly 10 digits.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.interest) {
+      setSubmitMessage({ type: 'error', text: 'Please select an interest.' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await postContactInquiry({
+        ...formData,
+        source: 'contact-page',
+      });
+      setSubmitMessage({ type: 'success', text: 'Thank you for your inquiry! We will contact you soon.' });
+      setFormData({ name: '', phone: '', interest: '', message: '' });
+    } catch (error) {
+      setSubmitMessage({ type: 'error', text: error.message || 'Could not submit inquiry right now.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === 'phone') {
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+      setFormData({ ...formData, phone: digitsOnly });
+      return;
+    }
+
+    setFormData({ ...formData, [name]: value });
   };
 
   return (
@@ -63,8 +100,8 @@ const Contact = () => {
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Address</h3>
                     <p className="text-textGrey text-sm sm:text-base">
-                      AP Complex, Kuttikattor,<br />
-                      Calicut, Kerala - 673008
+                      {CONTACT_DETAILS.addressLines[0]}<br />
+                      {CONTACT_DETAILS.addressLines[1]}
                     </p>
                   </div>
                 </div>
@@ -75,8 +112,8 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Phone</h3>
-                    <p className="text-textGrey text-sm sm:text-base">+91 7907 30 40 50</p>
-                    <p className="text-textGrey text-sm sm:text-base">+91 96452 87355</p>
+                    <p className="text-textGrey text-sm sm:text-base">{CONTACT_DETAILS.phones[0]}</p>
+                    <p className="text-textGrey text-sm sm:text-base">{CONTACT_DETAILS.phones[1]}</p>
                   </div>
                 </div>
 
@@ -86,7 +123,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Email</h3>
-                    <p className="text-textGrey text-sm sm:text-base break-all">eracreatiodevelopers@gmail.com</p>
+                    <p className="text-textGrey text-sm sm:text-base break-all">{CONTACT_DETAILS.email}</p>
                   </div>
                 </div>
 
@@ -96,8 +133,8 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-primary mb-1 text-sm sm:text-base">Working Hours</h3>
-                    <p className="text-textGrey text-sm sm:text-base">Monday - Saturday: 9:00 AM - 6:00 PM</p>
-                    <p className="text-textGrey text-sm sm:text-base">Sunday: By Appointment</p>
+                    <p className="text-textGrey text-sm sm:text-base">{CONTACT_DETAILS.workingHours.weekdays}</p>
+                    <p className="text-textGrey text-sm sm:text-base">{CONTACT_DETAILS.workingHours.sunday}</p>
                   </div>
                 </div>
               </div>
@@ -146,19 +183,24 @@ const Contact = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     required
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    minLength={10}
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-luxury focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base"
-                    placeholder="+91 XXXXX XXXXX"
+                    placeholder="Enter 10-digit phone number"
                   />
                 </div>
 
                 <div>
                   <label className="block text-primary font-medium mb-2 text-sm sm:text-base">
-                    I'm Interested In
+                    I'm Interested In *
                   </label>
                   <select
                     name="interest"
                     value={formData.interest}
                     onChange={handleChange}
+                    required
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-luxury focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base"
                   >
                     <option value="">Select an option</option>
@@ -185,10 +227,16 @@ const Contact = () => {
 
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full bg-accent text-white py-3 sm:py-4 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-base sm:text-lg"
                 >
-                  Submit Inquiry
+                  {isSubmitting ? 'Submitting...' : 'Submit Inquiry'}
                 </button>
+                {submitMessage.text && (
+                  <p className={`text-sm ${submitMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                    {submitMessage.text}
+                  </p>
+                )}
               </form>
             </motion.div>
           </div>

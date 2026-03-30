@@ -77,3 +77,103 @@ button, a {
   overflow: hidden;
 }
 
+.admin-blog-editor .ql-toolbar.ql-snow {
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #faf8f3;
+}
+
+.admin-blog-editor .ql-container.ql-snow {
+  border: 0;
+  min-height: 280px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 1rem;
+  color: #1f2937;
+}
+
+.admin-blog-editor .ql-editor {
+  min-height: 280px;
+  line-height: 1.75;
+}
+
+.admin-blog-editor .ql-editor.ql-blank::before {
+  color: #9ca3af;
+  font-style: normal;
+}
+
+.journal-rich-content {
+  color: #374151;
+  font-size: 1rem;
+  line-height: 1.9;
+}
+
+.journal-rich-content h1,
+.journal-rich-content h2,
+.journal-rich-content h3,
+.journal-rich-content h4 {
+  font-family: 'Playfair Display', serif;
+  color: #111827;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.journal-rich-content h1 {
+  font-size: clamp(1.9rem, 3vw, 2.4rem);
+}
+
+.journal-rich-content h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+}
+
+.journal-rich-content h3 {
+  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+}
+
+.journal-rich-content p {
+  margin-bottom: 1rem;
+}
+
+.journal-rich-content ul,
+.journal-rich-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.journal-rich-content ul {
+  list-style-type: disc;
+}
+
+.journal-rich-content ol {
+  list-style-type: decimal;
+}
+
+.journal-rich-content li {
+  margin-bottom: 0.3rem;
+}
+
+.journal-rich-content blockquote {
+  border-left: 4px solid #c6a769;
+  background: #fff7e5;
+  padding: 0.9rem 1.2rem;
+  border-radius: 0 0.75rem 0.75rem 0;
+  margin: 1rem 0;
+  font-style: italic;
+}
+
+.journal-rich-content a {
+  color: #b8964d;
+  text-decoration: underline;
+}
+
+.journal-rich-content .ql-align-center {
+  text-align: center;
+}
+
+.journal-rich-content .ql-align-right {
+  text-align: right;
+}
+
+.journal-rich-content .ql-align-justify {
+  text-align: justify;
+}
+

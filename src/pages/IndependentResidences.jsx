@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fa6';
 import ResidenceGallery from '../components/ResidenceGallery';
 import { residenceImages } from '../data/residencesData';
+import { getPublicGalleries } from '../services/api';
 
 /* ── Section heading helper ── */
 const SectionHeading = ({ label, title, center = true }) => (
@@ -46,8 +47,38 @@ const processSteps = [
 
 const IndependentResidences = () => {
   const [activeGallery, setActiveGallery] = useState('ongoing');
+  const [galleryCollections, setGalleryCollections] = useState(residenceImages);
 
-  const activeImages = residenceImages[activeGallery];
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadGalleries() {
+      try {
+        const data = await getPublicGalleries();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setGalleryCollections({
+          ongoing: Array.isArray(data.independent?.ongoing) ? data.independent.ongoing : [],
+          completed: Array.isArray(data.independent?.completed) ? data.independent.completed : [],
+        });
+      } catch (_error) {
+        if (isMounted) {
+          setGalleryCollections(residenceImages);
+        }
+      }
+    }
+
+    loadGalleries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeImages = galleryCollections[activeGallery] || [];
 
   return (
     <div className="pt-20 sm:pt-24">

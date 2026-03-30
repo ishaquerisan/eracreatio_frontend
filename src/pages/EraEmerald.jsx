@@ -36,6 +36,7 @@ import {
   FaXmark,
 } from 'react-icons/fa6';
 import { villaProjects } from '../data/projectsData';
+import { CONTACT_DETAILS } from '../data/contactDetails';
 import ContactPopup from '../components/ContactPopup';
 
 const project = villaProjects.ongoing[0];
@@ -220,7 +221,7 @@ const qrItems = [
 
 /* ── Main Page ── */
 const EraEmerald = () => {
-  const wa = `https://wa.me/917907304050?text=${encodeURIComponent('Hi! I am interested in Era Emerald villa project.')}`;
+  const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent('Hi! I am interested in Era Emerald villa project.')}`;
   const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {

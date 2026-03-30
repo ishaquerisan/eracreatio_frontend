@@ -12,7 +12,9 @@ import CommercialProjects from './pages/CommercialProjects';
 import CommercialProjectsGallery from './pages/CommercialProjectsGallery';
 import About from './pages/About';
 import Blog from './pages/Blog';
+import BlogDetail from './pages/BlogDetail';
 import Contact from './pages/Contact';
+import Admin from './pages/Admin';
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -24,29 +26,40 @@ const ScrollToTop = () => {
   return null;
 };
 
+const AppShell = () => {
+  const { pathname } = useLocation();
+  const isAdminRoute = pathname.startsWith('/admin');
+
+  return (
+    <div className="App">
+      {!isAdminRoute && <Header />}
+      <main>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/villa-projects" element={<VillaProjects />} />
+          <Route path="/villa/era-emerald" element={<EraEmerald />} />
+          <Route path="/independent-residences" element={<IndependentResidences />} />
+          <Route path="/independent-residences/gallery" element={<IndependentResidencesGallery />} />
+          <Route path="/commercial-projects" element={<CommercialProjects />} />
+          <Route path="/commercial-projects/gallery" element={<CommercialProjectsGallery />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:blogId" element={<BlogDetail />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </main>
+      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && <WhatsAppButton />}
+    </div>
+  );
+};
+
 function App() {
   return (
     <Router>
       <ScrollToTop />
-      <div className="App">
-        <Header />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/villa-projects" element={<VillaProjects />} />
-            <Route path="/villa/era-emerald" element={<EraEmerald />} />
-            <Route path="/independent-residences" element={<IndependentResidences />} />
-            <Route path="/independent-residences/gallery" element={<IndependentResidencesGallery />} />
-            <Route path="/commercial-projects" element={<CommercialProjects />} />
-            <Route path="/commercial-projects/gallery" element={<CommercialProjectsGallery />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/blog" element={<Blog />} />
-            <Route path="/contact" element={<Contact />} />
-          </Routes>
-        </main>
-        <Footer />
-        <WhatsAppButton />
-      </div>
+      <AppShell />
     </Router>
   );
 }

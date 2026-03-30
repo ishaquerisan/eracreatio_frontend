@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaCircleCheck, FaHouse, FaXmark } from 'react-icons/fa6';
+import { postContactInquiry } from '../services/api';
 
 const ContactPopup = ({ onClose }) => {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', interest: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Close on Escape key
   useEffect(() => {
@@ -13,12 +16,50 @@ const ContactPopup = ({ onClose }) => {
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-  const handleSubmit = (e) => {
+    if (name === 'phone') {
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+      setForm({ ...form, phone: digitsOnly });
+      return;
+    }
+
+    setForm({ ...form, [name]: value });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => onClose(), 2200);
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    if (!/^\d{10}$/.test(form.phone)) {
+      setErrorMessage('Phone number must be exactly 10 digits.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!form.interest) {
+      setErrorMessage('Please select an interest.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await postContactInquiry({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        interest: form.interest,
+        source: 'contact-popup',
+      });
+      setSubmitted(true);
+      setTimeout(() => onClose(), 2200);
+    } catch (error) {
+      setErrorMessage(error.message || 'Could not submit right now. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,25 +134,38 @@ const ContactPopup = ({ onClose }) => {
                     value={form.phone}
                     onChange={handleChange}
                     required
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    minLength={10}
                     placeholder="Phone Number"
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-gray-50 placeholder-gray-400"
                   />
-                  <input
-                    type="text"
-                    name="subject"
-                    value={form.subject}
+                  <select
+                    name="interest"
+                    value={form.interest}
                     onChange={handleChange}
-                    placeholder="Subject"
+                    required
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-gray-50 placeholder-gray-400"
-                  />
+                  >
+                    <option value="">Select Interest</option>
+                    <option value="villa">Villa Projects</option>
+                    <option value="independent">Independent Residences</option>
+                    <option value="commercial">Commercial Projects</option>
+                    <option value="renovation">Renovation</option>
+                  </select>
 
                   <button
                     type="submit"
-                    className="w-full bg-primary text-white py-3.5 rounded-xl hover:bg-accent transition-colors font-semibold tracking-wide text-sm sm:text-base mt-1"
+                    disabled={isSubmitting}
+                    className="w-full bg-primary text-white py-3.5 rounded-xl hover:bg-accent transition-colors font-semibold tracking-wide text-sm sm:text-base mt-1 disabled:opacity-60"
                   >
-                    CONTACT US
+                    {isSubmitting ? 'SENDING...' : 'CONTACT US'}
                   </button>
                 </form>
+                {errorMessage && (
+                  <p className="text-center text-xs text-red-500 mt-3">{errorMessage}</p>
+                )}
 
                 <p className="text-center text-xs text-gray-400 mt-4">
                   We respect your privacy. No spam, ever.

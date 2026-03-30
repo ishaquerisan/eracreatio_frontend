@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
@@ -9,9 +9,11 @@ import {
   FaRulerCombined,
   FaShieldHalved,
   FaTrowelBricks,
+  FaXmark,
 } from 'react-icons/fa6';
-import { commercialProjects, commercialGallery } from '../data/projectsData';
+import { commercialProjects as staticCommercialProjects, commercialGallery } from '../data/projectsData';
 import ResidenceGallery from '../components/ResidenceGallery';
+import { getPublicCommercialProjects, getPublicGalleries } from '../services/api';
 
 const highlights = [
   { icon: FaMapLocationDot, title: 'Strategic Project Planning', desc: 'Every project is planned with a focus on accessibility, site efficiency, and long-term usability.' },
@@ -33,7 +35,70 @@ const SH = ({ label, title, light = false }) => (
 const CommercialProjects = () => {
   const [activeTab, setActiveTab] = useState('ongoing');
   const [galleryTab, setGalleryTab] = useState('ongoing');
-  const projects = commercialProjects[activeTab];
+  const [projectCollections, setProjectCollections] = useState(staticCommercialProjects);
+  const [galleryCollections, setGalleryCollections] = useState(commercialGallery);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const projects = projectCollections[activeTab] || [];
+  const activeGalleryImages = galleryCollections[galleryTab] || [];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCommercialContent() {
+      const [galleryResult, projectResult] = await Promise.allSettled([
+        getPublicGalleries(),
+        getPublicCommercialProjects(),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (galleryResult.status === 'fulfilled') {
+        const galleryData = galleryResult.value;
+        setGalleryCollections({
+          ongoing: Array.isArray(galleryData.commercial?.ongoing) ? galleryData.commercial.ongoing : [],
+          completed: Array.isArray(galleryData.commercial?.completed) ? galleryData.commercial.completed : [],
+        });
+      } else {
+        setGalleryCollections(commercialGallery);
+      }
+
+      if (projectResult.status === 'fulfilled') {
+        const projectData = projectResult.value;
+        setProjectCollections({
+          ongoing: Array.isArray(projectData.ongoing) ? projectData.ongoing : [],
+          completed: Array.isArray(projectData.completed) ? projectData.completed : [],
+        });
+      } else {
+        setProjectCollections(staticCommercialProjects);
+      }
+    }
+
+    loadCommercialContent();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      return undefined;
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedProject(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [selectedProject]);
 
   return (
     <div className="pt-20 sm:pt-24">
@@ -115,15 +180,90 @@ const CommercialProjects = () => {
                     <span><strong className="text-primary">{project.landArea}</strong> Land</span>
                     <span><strong className="text-primary">{project.units}</strong></span>
                   </div>
-                  <button className="block w-full text-center bg-primary text-white py-2.5 sm:py-3 rounded-luxury hover:bg-accent transition-colors font-medium text-sm sm:text-base">
+                  {project.summary ? (
+                    <p className="text-xs sm:text-sm text-textGrey mb-4 line-clamp-2">{project.summary}</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProject(project)}
+                    className="block w-full text-center bg-primary text-white py-2.5 sm:py-3 rounded-luxury hover:bg-accent transition-colors font-medium text-sm sm:text-base"
+                  >
                     View Details
                   </button>
                 </div>
               </motion.div>
             ))}
           </div>
+          {!projects.length ? <p className="text-center text-textGrey text-sm sm:text-base mt-6">No commercial projects available in this category yet.</p> : null}
         </div>
       </section>
+
+      {selectedProject ? (
+        <div className="fixed inset-0 z-50 bg-black/70 p-4 sm:p-6 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center">
+            <div className="w-full max-w-3xl bg-white rounded-2xl overflow-hidden shadow-2xl">
+              <div className="relative h-56 sm:h-72">
+                <img
+                  src={selectedProject.image}
+                  alt={selectedProject.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                <button
+                  type="button"
+                  onClick={() => setSelectedProject(null)}
+                  className="absolute top-3 right-3 bg-black/60 hover:bg-black/75 text-white rounded-full w-9 h-9 inline-flex items-center justify-center"
+                  aria-label="Close details"
+                >
+                  <FaXmark />
+                </button>
+                <div className="absolute left-4 right-4 bottom-4 text-white">
+                  <p className="text-xs uppercase tracking-wide text-gray-200">{selectedProject.status || (selectedProject.category === 'completed' ? 'Completed' : 'Ongoing')}</p>
+                  <h3 className="font-serif text-2xl sm:text-3xl leading-tight">{selectedProject.name}</h3>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6">
+                <div className="grid sm:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-bgLight rounded-xl p-3">
+                    <p className="text-textGrey">Location</p>
+                    <p className="text-primary font-medium mt-1">{selectedProject.location || '-'}</p>
+                  </div>
+                  <div className="bg-bgLight rounded-xl p-3">
+                    <p className="text-textGrey">Land Area</p>
+                    <p className="text-primary font-medium mt-1">{selectedProject.landArea || '-'}</p>
+                  </div>
+                  <div className="bg-bgLight rounded-xl p-3">
+                    <p className="text-textGrey">Units</p>
+                    <p className="text-primary font-medium mt-1">{selectedProject.units || '-'}</p>
+                  </div>
+                </div>
+
+                {selectedProject.summary ? (
+                  <p className="mt-5 text-sm sm:text-base text-textGrey leading-relaxed">{selectedProject.summary}</p>
+                ) : null}
+
+                <div className="mt-4 bg-bgLight rounded-xl p-4">
+                  <p className="text-primary font-medium mb-2">Project Details</p>
+                  <p className="text-sm sm:text-base text-textGrey whitespace-pre-line leading-relaxed">
+                    {selectedProject.details || 'Detailed project notes will be shared soon.'}
+                  </p>
+                </div>
+
+                <div className="mt-5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProject(null)}
+                    className="bg-primary text-white px-6 py-2.5 rounded-luxury hover:bg-accent transition-colors text-sm sm:text-base"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ── PROJECT GALLERY ── */}
       <section className="py-14 sm:py-20 bg-bgLight">
@@ -140,7 +280,7 @@ const CommercialProjects = () => {
             ))}
           </div>
           <ResidenceGallery
-            images={commercialGallery[galleryTab]}
+            images={activeGalleryImages}
             category={galleryTab}
             showExpandControls={false}
             viewGalleryPath="/commercial-projects/gallery"

@@ -31,15 +31,47 @@ A modern, premium luxury real estate website built with React.js for Era Creatio
 npm install
 ```
 
-2. Start development server:
+2. Configure frontend API URL:
+```bash
+# .env (in project root)
+REACT_APP_API_URL=http://localhost:5000/api
+```
+
+3. Start frontend development server:
 ```bash
 npm start
 ```
 
-3. Build for production:
+4. Build for production:
 ```bash
 npm run build
 ```
+
+## Backend (Node.js + Express + MySQL)
+
+1. Open a new terminal and install backend dependencies:
+```bash
+cd server
+npm install
+```
+
+2. Create backend environment file:
+```bash
+copy .env.example .env
+```
+
+3. Ensure MySQL is running with these credentials:
+- Username: `root`
+- Password: `mysql`
+
+4. Start backend server:
+```bash
+npm run dev
+```
+
+The backend auto-creates required MySQL tables:
+- `newsletter_subscribers`
+- `contact_inquiries`
 
 ## Project Structure
 

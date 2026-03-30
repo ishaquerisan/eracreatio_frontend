@@ -1,18 +1,49 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaArrowLeftLong } from 'react-icons/fa6';
 import ResidenceGallery from '../components/ResidenceGallery';
 import { residenceImages } from '../data/residencesData';
+import { getPublicGalleries } from '../services/api';
 
 const filterOptions = ['all', 'ongoing', 'completed'];
 
 const IndependentResidencesGallery = () => {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [galleryCollections, setGalleryCollections] = useState(residenceImages);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadGalleries() {
+      try {
+        const data = await getPublicGalleries();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setGalleryCollections({
+          ongoing: Array.isArray(data.independent?.ongoing) ? data.independent.ongoing : [],
+          completed: Array.isArray(data.independent?.completed) ? data.independent.completed : [],
+        });
+      } catch (_error) {
+        if (isMounted) {
+          setGalleryCollections(residenceImages);
+        }
+      }
+    }
+
+    loadGalleries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const allWorks = useMemo(
-    () => [...residenceImages.ongoing, ...residenceImages.completed],
-    []
+    () => [...(galleryCollections.ongoing || []), ...(galleryCollections.completed || [])],
+    [galleryCollections]
   );
 
   const filteredImages = useMemo(() => {
