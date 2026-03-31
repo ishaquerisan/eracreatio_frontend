@@ -19,7 +19,7 @@ const CounterSection = () => {
           setIsVisible(true);
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.1 } // Lower threshold for better mobile trigger
     );
 
     if (sectionRef.current) {
@@ -49,28 +49,41 @@ const CounterSection = () => {
       };
 
       requestAnimationFrame(animate);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [end, duration]);
+    }, [end, duration, isVisible]);
 
     return <span>{count}{suffix}</span>;
   };
 
   return (
-    <section ref={sectionRef} className="py-12 sm:py-16 lg:py-20 bg-primary text-white">
+    <section ref={sectionRef} className="py-8 md:py-20 bg-primary text-white border-b border-white/5">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+        {/* MOBILE: grid-cols-2 (compact 2x2 layout)
+            DESKTOP: lg:grid-cols-4 (standard row)
+        */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-8 gap-x-4 md:gap-8">
           {counters.map((counter, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={isVisible ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: index * 0.1, duration: 0.6 }}
-              className="text-center"
+              className="text-center px-2"
             >
-              <div className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-accent mb-2">
+              {/* NUMBER SIZE: 
+                  Mobile: text-2xl 
+                  Desktop: lg:text-5xl 
+              */}
+              <div className="font-serif text-2xl sm:text-3xl lg:text-5xl font-bold text-accent mb-1 md:mb-3">
                 <Counter end={counter.value} suffix={counter.suffix} />
               </div>
-              <p className="text-gray-400 text-xs sm:text-sm lg:text-base">{counter.label}</p>
+              
+              {/* LABEL SIZE: 
+                  Mobile: text-[10px] (Extremely clean/minimal)
+                  Desktop: lg:text-sm 
+              */}
+              <p className="text-gray-400 text-[10px] sm:text-xs lg:text-sm uppercase tracking-[0.2em] font-medium leading-tight">
+                {counter.label}
+              </p>
             </motion.div>
           ))}
         </div>

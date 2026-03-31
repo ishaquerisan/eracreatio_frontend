@@ -34,7 +34,7 @@ const Header = () => {
     <motion.header
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className={`fixed w-full top-0 z-50 transition-all duration-300 ${
+      className={`fixed left-0 right-0 w-full top-0 z-50 transition-all duration-300 ${
         solidBg ? 'bg-white shadow-lg' : 'bg-white/70 backdrop-blur-sm'
       }`}
     >
@@ -78,7 +78,8 @@ const Header = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden text-primary"
+            className="lg:hidden text-primary p-2 -mr-2"
+            aria-label="Toggle Menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {mobileMenuOpen ? (
@@ -89,36 +90,38 @@ const Header = () => {
             </svg>
           </button>
         </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="lg:hidden bg-white shadow-lg rounded-b-lg"
-          >
-            <nav className="flex flex-col py-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-3 text-primary hover:bg-bgLight hover:text-accent transition-colors"
-                >
-                  {link.name}
-                </Link>
-              ))}
-              <Link
-                to="/contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="mx-4 mt-2 bg-accent text-white px-6 py-3 rounded-luxury text-center"
-              >
-                Book a Site Visit
-              </Link>
-            </nav>
-          </motion.div>
-        )}
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:hidden absolute left-0 right-0 top-full bg-white shadow-xl max-h-[calc(100vh-80px)] overflow-y-auto border-t border-gray-100"
+        >
+          <nav className="flex flex-col py-2 px-4">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.path}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`px-4 py-3.5 text-primary hover:bg-bgLight hover:text-accent font-medium transition-colors border-b border-gray-50 last:border-none ${
+                  location.pathname === link.path ? 'text-accent bg-bgLight/50 rounded-lg' : ''
+                }`}
+              >
+                {link.name}
+              </Link>
+            ))}
+            <Link
+              to="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className="mx-4 mt-6 mb-8 bg-accent text-white px-6 py-3.5 rounded-luxury text-center font-semibold"
+            >
+              Book a Site Visit
+            </Link>
+          </nav>
+        </motion.div>
+      )}
     </motion.header>
   );
 };

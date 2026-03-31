@@ -31,7 +31,7 @@ const AppShell = () => {
   const isAdminRoute = pathname.startsWith('/admin');
 
   return (
-    <div className="App">
+    <div className="App overflow-x-hidden min-h-screen">
       {!isAdminRoute && <Header />}
       <main>
         <Routes>

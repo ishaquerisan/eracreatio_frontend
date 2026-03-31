@@ -83,22 +83,22 @@ const About = () => {
               <img
                 src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
                 alt="About 1"
-                className="rounded-2xl shadow-lg"
+                className="w-full h-auto object-cover rounded-2xl shadow-lg"
               />
               <img
                 src="https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=400&q=80"
                 alt="About 2"
-                className="rounded-2xl shadow-lg mt-8"
+                className="w-full h-auto object-cover rounded-2xl shadow-lg mt-8"
               />
               <img
                 src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80"
                 alt="About 3"
-                className="rounded-2xl shadow-lg"
+                className="w-full h-auto object-cover rounded-2xl shadow-lg"
               />
               <img
                 src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80"
                 alt="About 4"
-                className="rounded-2xl shadow-lg mt-8"
+                className="w-full h-auto object-cover rounded-2xl shadow-lg mt-8"
               />
             </motion.div>
           </div>

@@ -11,56 +11,66 @@ const Home = () => {
   const allProjects = [...villaProjects.ongoing, ...villaProjects.upcoming];
 
   const whyChooseUs = [
-    { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing and documentation.' },
-    { icon: FaScaleBalanced, title: 'Legality', description: '100% RERA and KMBR compliance for your peace of mind.' },
-    { icon: FaLeaf, title: 'Eco-Friendly', description: 'Sustainable building practices for a greener tomorrow.' },
-    { icon: FaBuilding, title: 'Engineering Excellence', description: 'Engineering-led project supervision ensuring quality.' }
+    { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing.' },
+    { icon: FaScaleBalanced, title: 'Legality', description: '100% RERA and KMBR compliance.' },
+    { icon: FaLeaf, title: 'Eco-Friendly', description: 'Sustainable building practices.' },
+    { icon: FaBuilding, title: 'Engineering', description: 'Engineering-led project supervision.' }
   ];
 
   return (
-    <div>
+    <main className="pt-16 md:pt-0 overflow-x-hidden">
       <HeroSlider />
+      
+      {/* CounterSection should handle its own internal responsiveness, 
+         but placing it here ensures it follows the flow. 
+      */}
       <CounterSection />
 
       {/* Introduction Section */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-bgLight">
+      <section className="py-10 sm:py-16 lg:py-20 bg-bgLight">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-center">
+          <div className="grid lg:grid-cols-2 gap-8 items-center">
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
+              className="order-2 lg:order-1"
             >
               <img
                 src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&q=80"
                 alt="Era Creatio"
-                className="rounded-xl sm:rounded-2xl shadow-2xl"
+                className="w-full h-56 sm:h-80 lg:h-auto object-cover rounded-xl shadow-xl"
               />
             </motion.div>
+            
             <motion.div
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
+              className="order-1 lg:order-2"
             >
-              <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-primary mb-4 sm:mb-6">
+              {/* Responsive Font: text-xl on mobile, text-5xl on desktop */}
+              <h2 className="font-serif text-xl sm:text-3xl lg:text-5xl font-bold text-primary mb-3 md:mb-6">
                 Welcome to Era Creatio Developers
               </h2>
-              <div className="w-16 sm:w-20 h-1 bg-accent mb-4 sm:mb-6"></div>
-              <p className="text-textGrey text-base sm:text-lg leading-relaxed mb-4 sm:mb-6">
+              <div className="w-12 md:w-20 h-1 bg-accent mb-4 md:mb-6"></div>
+              
+              <p className="text-textGrey text-sm sm:text-lg leading-relaxed mb-4">
                 Since 2018, we have evolved from a construction firm into a premier property developer.
                 We don't just build structures; we curate lifestyles.
               </p>
-              <p className="text-textGrey text-base sm:text-lg leading-relaxed mb-6 sm:mb-8">
-                Our commitment to RERA standards, KMBR compliance, and architectural excellence ensures
-                your investment is secure and your home is timeless.
+              <p className="text-textGrey text-sm sm:text-lg leading-relaxed mb-6">
+                Our commitment to RERA standards and architectural excellence ensures
+                your investment is secure.
               </p>
+              
               <Link
                 to="/about"
-                className="inline-block bg-accent text-white px-6 sm:px-8 py-3 sm:py-4 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base"
+                className="inline-block bg-accent text-white px-5 py-2.5 md:px-8 md:py-4 rounded-sm hover:bg-opacity-90 transition-all font-medium text-xs md:text-base"
               >
-                Learn More About Us
+                Learn More
               </Link>
             </motion.div>
           </div>
@@ -68,124 +78,97 @@ const Home = () => {
       </section>
 
       {/* Featured Projects */}
-      <section className="py-12 sm:py-16 lg:py-20">
+      <section className="py-10 sm:py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-10 sm:mb-12 lg:mb-16"
+            className="text-center mb-8 md:mb-16"
           >
-            <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-primary mb-3 sm:mb-4">
+            <h2 className="font-serif text-xl sm:text-4xl lg:text-5xl font-bold text-primary mb-2">
               Our Villa Projects
             </h2>
-            <p className="text-textGrey text-base sm:text-lg max-w-2xl mx-auto px-4">
-              Discover our signature developments that redefine luxury living in Kerala.
+            <p className="text-textGrey text-xs sm:text-lg max-w-2xl mx-auto opacity-80">
+              Signature developments redefining luxury living in Kerala.
             </p>
           </motion.div>
 
-          <div className="grid sm:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
+          {/* Grid: 1 column on mobile, 2 on tablet+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-8 max-w-5xl mx-auto">
             {allProjects.map((project, index) => (
               <motion.div
                 key={project.id}
-                initial={{ opacity: 0, y: 30 }}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.15, duration: 0.6 }}
-                className="group bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
+                transition={{ delay: index * 0.1 }}
+                className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all"
               >
-                <div className="relative h-52 sm:h-64 overflow-hidden">
+                <div className="relative h-48 md:h-64 overflow-hidden">
                   <img
                     src={project.image}
                     alt={project.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute top-3 right-3">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                      project.status === 'Ongoing' ? 'bg-accent text-white' : 'bg-blue-500 text-white'
-                    }`}>
+                  <div className="absolute top-2 right-2">
+                    <span className="px-2 py-1 rounded-sm text-[10px] md:text-xs font-bold bg-accent text-white uppercase tracking-wider">
                       {project.status}
                     </span>
                   </div>
                 </div>
-                <div className="p-5 sm:p-6">
-                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary mb-1">{project.name}</h3>
-                  <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center">
-                    <FaLocationDot className="mr-2 text-accent" />{project.location}
+                
+                <div className="p-4 md:p-6">
+                  <h3 className="font-serif text-lg md:text-2xl font-bold text-primary mb-1">{project.name}</h3>
+                  <p className="text-textGrey text-xs md:text-base mb-3 flex items-center opacity-70">
+                    <FaLocationDot className="mr-1 text-accent" />{project.location}
                   </p>
-                  <div className="flex justify-between text-xs sm:text-sm text-textGrey mb-4">
-                    <span><strong className="text-primary">{project.landArea}</strong> Land</span>
-                    <span><strong className="text-primary">{project.units}</strong></span>
+                  
+                  <div className="flex justify-between text-[10px] md:text-sm text-textGrey border-t pt-3 mb-4">
+                    <span><strong>{project.landArea}</strong> Land</span>
+                    <span><strong>{project.units}</strong> Units</span>
                   </div>
-                  {project.status === 'Ongoing' ? (
-                    <Link
-                      to={`/villa/${project.id}`}
-                      className="block w-full text-center bg-primary text-white py-2.5 sm:py-3 rounded-luxury hover:bg-accent transition-colors font-medium text-sm sm:text-base"
-                    >
-                      View Details
-                    </Link>
-                  ) : (
-                    <div className="block w-full text-center bg-gray-100 text-gray-400 py-2.5 sm:py-3 rounded-luxury font-medium text-sm sm:text-base">
-                      Coming Soon
-                    </div>
-                  )}
+
+                  <Link
+                    to={project.status === 'Ongoing' ? `/villa/${project.id}` : '#'}
+                    className={`block w-full text-center py-2 md:py-3 rounded-sm font-medium text-xs md:text-base transition-colors ${
+                      project.status === 'Ongoing' 
+                      ? 'bg-primary text-white hover:bg-accent' 
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {project.status === 'Ongoing' ? 'View Details' : 'Coming Soon'}
+                  </Link>
                 </div>
               </motion.div>
             ))}
-          </div>
-
-          <div className="text-center mt-8 sm:mt-12">
-            <Link
-              to="/villa-projects"
-              className="inline-block border-2 border-accent text-accent px-6 sm:px-8 py-3 sm:py-4 rounded-luxury hover:bg-accent hover:text-white transition-all font-medium text-sm sm:text-base"
-            >
-              View All Projects
-            </Link>
           </div>
         </div>
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-12 sm:py-16 lg:py-20 bg-bgLight">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-10 sm:mb-12 lg:mb-16"
-          >
-            <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-primary mb-3 sm:mb-4">
-              Why Choose Era Creatio
-            </h2>
-            <p className="text-textGrey text-base sm:text-lg max-w-2xl mx-auto px-4">
-              Building trust through transparency, quality, and commitment to excellence.
-            </p>
-          </motion.div>
+      <section className="py-10 sm:py-20 bg-neutral-50">
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="text-center mb-8 md:mb-16">
+            <h2 className="font-serif text-xl md:text-5xl font-bold text-primary mb-2">Why Choose Us</h2>
+            <p className="text-textGrey text-xs md:text-lg">Transparency, quality, and commitment.</p>
+          </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+          {/* 2 columns on mobile, 4 on desktop */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
             {whyChooseUs.map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-                className="bg-white/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl sm:rounded-2xl text-center hover:shadow-xl transition-all group"
-              >
-                <item.icon className="text-3xl sm:text-4xl mb-3 sm:mb-4 text-accent mx-auto group-hover:scale-110 transition-transform" />
-                <h3 className="font-serif text-lg sm:text-xl font-bold text-primary mb-2 sm:mb-3">
-                  {item.title}
-                </h3>
-                <p className="text-textGrey text-sm sm:text-base">{item.description}</p>
-              </motion.div>
+              <div key={index} className="bg-white p-4 md:p-8 rounded-lg text-center shadow-sm hover:shadow-md transition-shadow">
+                <item.icon className="text-2xl md:text-4xl mb-2 md:mb-4 text-accent mx-auto" />
+                <h3 className="font-serif text-sm md:text-xl font-bold text-primary mb-1 md:mb-3">{item.title}</h3>
+                <p className="text-textGrey text-[10px] md:text-base leading-tight md:leading-normal">{item.description}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       <CTASection />
-    </div>
+    </main>
   );
 };
 

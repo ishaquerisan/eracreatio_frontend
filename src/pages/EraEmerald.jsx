@@ -234,7 +234,7 @@ const EraEmerald = () => {
       {showPopup && <ContactPopup onClose={() => setShowPopup(false)} />}
 
       {/* 1 ── HERO */}
-      <section className="relative min-h-screen flex items-end pb-16 sm:pb-24">
+      <section className="relative min-h-[75vh] sm:min-h-screen flex items-end pb-16 sm:pb-24">
         <div className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${project.images.exterior[0]})` }}>
           <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/50 to-black/20" />
