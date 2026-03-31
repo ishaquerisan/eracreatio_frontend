@@ -749,6 +749,35 @@ app.get('/api/admin/contact-inquiries', requireAdmin, async (_req, res) => {
   }
 });
 
+app.delete('/api/admin/contact-inquiries/:contactId', requireAdmin, async (req, res) => {
+  const contactId = Number(req.params.contactId);
+
+  if (!Number.isInteger(contactId) || contactId <= 0) {
+    return res.status(400).json({ message: 'Invalid contact inquiry id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id
+       FROM contact_inquiries
+       WHERE id = ?
+       LIMIT 1`,
+      [contactId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Contact inquiry not found.' });
+    }
+
+    await pool.execute('DELETE FROM contact_inquiries WHERE id = ?', [contactId]);
+    return res.json({ message: 'Contact inquiry deleted successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not delete contact inquiry.' });
+  }
+});
+
 app.get('/api/admin/gallery-entries', requireAdmin, async (req, res) => {
   try {
     const pool = await getPool();

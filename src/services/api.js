@@ -98,6 +98,13 @@ export function getAdminContactInquiries(token) {
   return request('/admin/contact-inquiries', { token });
 }
 
+export function deleteAdminContactInquiry(token, contactId) {
+  return request(`/admin/contact-inquiries/${contactId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export function getAdminBlogs(token) {
   return request('/admin/blogs', { token });
 }

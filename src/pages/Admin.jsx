@@ -12,6 +12,7 @@ import {
   createAdminGalleryEntry,
   deleteAdminBlog,
   deleteAdminCommercialProject,
+  deleteAdminContactInquiry,
   deleteAdminGalleryEntry,
   getAdminBlogs,
   getAdminCommercialProjects,
@@ -284,7 +285,8 @@ const Admin = () => {
     password: 'pass@123',
   });
 
-  const [activeTab, setActiveTab] = useState('newsletter');
+  const [activeTab, setActiveTab] = useState('contacts');
+  console.log(activeTab)
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
   const [subscriptions, setSubscriptions] = useState([]);
@@ -296,6 +298,7 @@ const Admin = () => {
   const [blogForm, setBlogForm] = useState(createEmptyBlogForm());
   const [isSavingBlog, setIsSavingBlog] = useState(false);
   const [deletingBlogId, setDeletingBlogId] = useState(null);
+  const [deletingContactId, setDeletingContactId] = useState(null);
   const [blogMessage, setBlogMessage] = useState({ type: '', text: '' });
   const [isBlogCropOpen, setIsBlogCropOpen] = useState(false);
   const [blogCropSource, setBlogCropSource] = useState('');
@@ -319,6 +322,9 @@ const Admin = () => {
   const [isSavingGalleryEntry, setIsSavingGalleryEntry] = useState(false);
   const [deletingGalleryEntryId, setDeletingGalleryEntryId] = useState(null);
   const [galleryMessage, setGalleryMessage] = useState({ type: '', text: '' });
+  const [showBlogForm, setShowBlogForm] = useState(false);
+  const [showGalleryForm, setShowGalleryForm] = useState(false);
+  const [showCommercialForm, setShowCommercialForm] = useState(false);
   const blogUploadInputRef = useRef(null);
   const blogPreviewRef = useRef('');
   const commercialProjectUploadInputRef = useRef(null);
@@ -435,6 +441,12 @@ const Admin = () => {
     revokeGalleryPreviewFiles(galleryPreviewsRef.current);
   }, []);
 
+  useEffect(() => {
+    setShowBlogForm(false);
+    setShowGalleryForm(false);
+    setShowCommercialForm(false);
+  }, [activeTab]);
+
   const resetBlogCropState = () => {
     setIsBlogCropOpen(false);
     setBlogCropSource('');
@@ -488,6 +500,40 @@ const Admin = () => {
     }
   };
 
+  const handleOpenBlogForm = () => {
+    resetBlogForm();
+    setBlogMessage({ type: '', text: '' });
+    setShowBlogForm(true);
+  };
+
+  const handleCloseBlogForm = () => {
+    resetBlogForm();
+    setBlogMessage({ type: '', text: '' });
+    setShowBlogForm(false);
+  };
+
+  const handleEditBlog = (blog) => {
+    resetBlogCropState();
+    setBlogForm((previous) => {
+      revokePreviewUrl(previous.imagePreviewUrl);
+      return mapBlogToForm(blog);
+    });
+    setBlogMessage({ type: '', text: '' });
+    setShowBlogForm(true);
+  };
+
+  const handleOpenCommercialProjectForm = () => {
+    resetCommercialProjectForm();
+    setCommercialProjectMessage({ type: '', text: '' });
+    setShowCommercialForm(true);
+  };
+
+  const handleOpenGalleryForm = () => {
+    resetGalleryForm();
+    setGalleryMessage({ type: '', text: '' });
+    setShowGalleryForm(true);
+  };
+
   const handleLoginSubmit = async (event) => {
     event.preventDefault();
     setAuthError('');
@@ -532,6 +578,10 @@ const Admin = () => {
     setBlogMessage({ type: '', text: '' });
     setCommercialProjectMessage({ type: '', text: '' });
     setGalleryMessage({ type: '', text: '' });
+    setShowBlogForm(false);
+    setShowCommercialForm(false);
+    setShowGalleryForm(false);
+    setDeletingContactId(null);
   };
 
   const handleBlogSubmit = async (event) => {
@@ -582,6 +632,7 @@ const Admin = () => {
       }
 
       resetBlogForm();
+      setShowBlogForm(false);
       await loadAdminData(token);
       setActiveTab('blogs');
     } catch (error) {
@@ -706,6 +757,7 @@ const Admin = () => {
 
       if (blogForm.id === blogId) {
         resetBlogForm();
+        setShowBlogForm(false);
       }
 
       setBlogMessage({ type: 'success', text: 'Article deleted successfully.' });
@@ -714,6 +766,26 @@ const Admin = () => {
       setBlogMessage({ type: 'error', text: error.message || 'Could not delete article.' });
     } finally {
       setDeletingBlogId(null);
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    const confirmed = window.confirm('Delete this contact inquiry?');
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDataError('');
+    setDeletingContactId(contactId);
+
+    try {
+      await deleteAdminContactInquiry(token, contactId);
+      await loadAdminData(token);
+    } catch (error) {
+      setDataError(error.message || 'Could not delete contact inquiry.');
+    } finally {
+      setDeletingContactId(null);
     }
   };
 
@@ -752,6 +824,7 @@ const Admin = () => {
       }
 
       resetCommercialProjectForm();
+      setShowCommercialForm(false);
       await loadAdminData(token);
       setActiveTab('commercialProjects');
     } catch (error) {
@@ -865,11 +938,13 @@ const Admin = () => {
     }
 
     setCommercialProjectMessage({ type: '', text: '' });
+    setShowCommercialForm(true);
   };
 
   const handleCancelCommercialProjectEdit = () => {
     resetCommercialProjectForm();
     setCommercialProjectMessage({ type: '', text: '' });
+    setShowCommercialForm(false);
   };
 
   const handleDeleteCommercialProject = async (projectId) => {
@@ -887,6 +962,7 @@ const Admin = () => {
 
       if (commercialProjectForm.id === projectId) {
         resetCommercialProjectForm();
+        setShowCommercialForm(false);
       }
 
       setCommercialProjectMessage({ type: 'success', text: 'Commercial project deleted successfully.' });
@@ -989,6 +1065,7 @@ const Admin = () => {
       }
 
       resetGalleryForm();
+      setShowGalleryForm(false);
       setGalleryMessage({
         type: 'success',
         text: galleryForm.id ? 'Gallery entry updated successfully.' : 'Gallery entry created successfully.',
@@ -1022,11 +1099,13 @@ const Admin = () => {
     if (galleryUploadInputRef.current) {
       galleryUploadInputRef.current.value = '';
     }
+    setShowGalleryForm(true);
   };
 
   const handleCancelGalleryEdit = () => {
     resetGalleryForm();
     setGalleryMessage({ type: '', text: '' });
+    setShowGalleryForm(false);
   };
 
   const handleDeleteGalleryEntry = async (entryId) => {
@@ -1044,6 +1123,7 @@ const Admin = () => {
 
       if (galleryForm.id === entryId) {
         resetGalleryForm();
+        setShowGalleryForm(false);
       }
 
       setGalleryMessage({ type: 'success', text: 'Gallery entry deleted successfully.' });
@@ -1058,7 +1138,7 @@ const Admin = () => {
   if (!token) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-950 text-white flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 p-8 shadow-2xl">
+        <div className="w-full max-w-md bg-white backdrop-blur-md rounded-2xl border border-white/15 p-8 shadow-2xl">
           <h1 className="font-serif text-3xl mb-2">Admin Console</h1>
           <p className="text-gray-300 text-sm mb-6">Sign in to manage newsletter subscriptions, contact inquiries, and journals.</p>
 
@@ -1102,14 +1182,11 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-bgLight pt-10 sm:pt-12 pb-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <section className="bg-primary text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl">
+        <section className="bg-[#C6A769] text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <p className="text-gray-300 text-sm">Signed in as {adminUsername}</p>
               <h1 className="font-serif text-3xl sm:text-4xl mt-1">Admin Dashboard</h1>
-              <p className="text-gray-300 mt-2 max-w-2xl">
-                Manage audience activity and publish premium journal-style articles that appear in the Knowledge Hub.
-              </p>
+
             </div>
             <button
               type="button"
@@ -1120,76 +1197,50 @@ const Admin = () => {
             </button>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-8">
-            <div className="bg-white/10 rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-300">Newsletter</p>
-              <p className="text-3xl font-semibold mt-2">{dashboardCounts.subscriptions}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-300">Contacts</p>
-              <p className="text-3xl font-semibold mt-2">{dashboardCounts.contacts}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-300">Articles</p>
-              <p className="text-3xl font-semibold mt-2">{dashboardCounts.blogs}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-300">Gallery Entries</p>
-              <p className="text-3xl font-semibold mt-2">{dashboardCounts.galleries}</p>
-            </div>
-            <div className="bg-white/10 rounded-2xl p-4">
-              <p className="text-xs uppercase tracking-wide text-gray-300">Commercial Projects</p>
-              <p className="text-3xl font-semibold mt-2">{dashboardCounts.commercialProjects}</p>
-            </div>
-          </div>
         </section>
 
         <section className="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveTab('newsletter')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeTab === 'newsletter' ? 'bg-primary text-white' : 'bg-bgLight text-primary'
-              }`}
-            >
-              Newsletter Subscriptions
-            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('contacts')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeTab === 'contacts' ? 'bg-primary text-white' : 'bg-bgLight text-primary'
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'contacts' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
             >
               Contact Details
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('blogs')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeTab === 'blogs' ? 'bg-primary text-white' : 'bg-bgLight text-primary'
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'blogs' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
             >
               Write Journals & Blogs
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('galleries')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeTab === 'galleries' ? 'bg-primary text-white' : 'bg-bgLight text-primary'
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'galleries' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
             >
               Manage Galleries
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('commercialProjects')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeTab === 'commercialProjects' ? 'bg-primary text-white' : 'bg-bgLight text-primary'
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'commercialProjects' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
             >
               Commercial Developments
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('newsletter')}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'newsletter' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
+            >
+              Newsletter Subscriptions
             </button>
           </div>
 
@@ -1228,8 +1279,18 @@ const Admin = () => {
               {contacts.map((contact) => (
                 <article key={contact.id} className="border border-gray-200 rounded-2xl p-4 sm:p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <h3 className="font-semibold text-primary text-lg">{contact.name}</h3>
-                    <p className="text-xs sm:text-sm text-textGrey">{formatDateTime(contact.createdAt)}</p>
+                    <div>
+                      <h3 className="font-semibold text-primary text-lg">{contact.name}</h3>
+                      <p className="text-xs sm:text-sm text-textGrey">{formatDateTime(contact.createdAt)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteContact(contact.id)}
+                      disabled={deletingContactId === contact.id}
+                      className="text-sm text-red-600 font-medium disabled:opacity-60"
+                    >
+                      {deletingContactId === contact.id ? 'Deleting...' : 'Delete'}
+                    </button>
                   </div>
                   <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-textGrey">
                     <p>Phone: {contact.phone || '-'}</p>
@@ -1245,686 +1306,758 @@ const Admin = () => {
           )}
 
           {activeTab === 'commercialProjects' && !isLoadingData && (
-            <div className="mt-6 grid xl:grid-cols-2 gap-6">
-              <form onSubmit={handleCommercialProjectSubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-serif text-2xl text-primary">
-                    {commercialProjectForm.id ? 'Edit Commercial Project' : 'Create Commercial Project'}
-                  </h3>
-                  {commercialProjectForm.id ? (
+            <div className="mt-6 space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-serif text-2xl text-primary">Commercial Developments</h3>
+                  <p className="text-sm text-textGrey mt-1">
+                    Manage the projects shown in "Our Commercial Developments" and configure details visible on View Details.
+                  </p>
+                </div>
+                {!showCommercialForm ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenCommercialProjectForm}
+                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                  >
+                    Add New Project
+                  </button>
+                ) : null}
+              </div>
+
+              {showCommercialForm ? (
+                <form onSubmit={handleCommercialProjectSubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-serif text-2xl text-primary">
+                      {commercialProjectForm.id ? 'Edit Commercial Project' : 'Create Commercial Project'}
+                    </h3>
                     <button
                       type="button"
                       onClick={handleCancelCommercialProjectEdit}
                       className="text-sm text-accent font-medium"
                     >
-                      Cancel Edit
+                      {commercialProjectForm.id ? 'Cancel Edit' : 'Close'}
                     </button>
-                  ) : null}
-                </div>
+                  </div>
 
-                <p className="text-sm text-textGrey">
-                  Manage the projects shown in "Our Commercial Developments" and configure details visible on View Details.
-                </p>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <select
-                    value={commercialProjectForm.category}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, category: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  >
-                    <option value="ongoing">Ongoing</option>
-                    <option value="completed">Completed</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Slug (optional)"
-                    value={commercialProjectForm.slug}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, slug: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Project name"
-                    value={commercialProjectForm.name}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, name: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Location / Place"
-                    value={commercialProjectForm.location}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, location: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Land area"
-                    value={commercialProjectForm.landArea}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, landArea: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-
-                  <input
-                    type="text"
-                    placeholder="Units"
-                    value={commercialProjectForm.units}
-                    onChange={(event) => {
-                      setCommercialProjectForm((previous) => ({ ...previous, units: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-primary/15 bg-white p-4">
-                  <input
-                    ref={commercialProjectUploadInputRef}
-                    id="commercial-project-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCommercialProjectImageSelected}
-                    className="hidden"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label
-                      htmlFor="commercial-project-image-upload"
-                      className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-primary text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <select
+                      value={commercialProjectForm.category}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, category: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
                     >
-                      {commercialProjectForm.id ? 'Choose Replacement Cover Image' : 'Choose Cover Image'}
-                    </label>
-                    {commercialProjectForm.imageFile ? (
-                      <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{commercialProjectForm.imageFile.name}</span>
-                    ) : (
-                      <span className="text-xs sm:text-sm text-textGrey">No file selected</span>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-textGrey">
-                    {commercialProjectForm.id
-                      ? 'Upload a new image only if you want to replace the current cover image. Crop ratio is fixed to 3:2.'
-                      : 'Upload one cover image for this project. Crop ratio is fixed to 3:2.'}
-                  </p>
-                </div>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                    </select>
 
-                {commercialProjectForm.imagePreviewUrl ? (
-                  <div>
-                    <p className="text-xs text-textGrey mb-2">Selected cover image</p>
-                    <img
-                      src={commercialProjectForm.imagePreviewUrl}
-                      alt="Selected commercial project cover"
-                      className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                    <input
+                      type="text"
+                      placeholder="Slug (optional)"
+                      value={commercialProjectForm.slug}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, slug: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
                     />
                   </div>
-                ) : null}
 
-                {commercialProjectForm.id && !commercialProjectForm.imagePreviewUrl && commercialProjectForm.existingImageUrl ? (
-                  <div>
-                    <p className="text-xs text-textGrey mb-2">Current cover image</p>
-                    <img
-                      src={commercialProjectForm.existingImageUrl}
-                      alt="Current commercial project cover"
-                      className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Project name"
+                      value={commercialProjectForm.name}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, name: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      required
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Location / Place"
+                      value={commercialProjectForm.location}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, location: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      required
                     />
                   </div>
-                ) : null}
 
-                <textarea
-                  placeholder="Short summary shown on project card (optional)"
-                  value={commercialProjectForm.summary}
-                  onChange={(event) => {
-                    setCommercialProjectForm((previous) => ({ ...previous, summary: event.target.value }));
-                  }}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Land area"
+                      value={commercialProjectForm.landArea}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, landArea: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      required
+                    />
 
-                <textarea
-                  placeholder="Detailed description shown in View Details"
-                  value={commercialProjectForm.details}
-                  onChange={(event) => {
-                    setCommercialProjectForm((previous) => ({ ...previous, details: event.target.value }));
-                  }}
-                  rows={7}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-y"
-                />
+                    <input
+                      type="text"
+                      placeholder="Units"
+                      value={commercialProjectForm.units}
+                      onChange={(event) => {
+                        setCommercialProjectForm((previous) => ({ ...previous, units: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      required
+                    />
+                  </div>
 
-                {commercialProjectMessage.text ? (
-                  <p className={`text-sm ${commercialProjectMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                    {commercialProjectMessage.text}
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={isSavingCommercialProject}
-                  className="bg-primary text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
-                >
-                  {isSavingCommercialProject
-                    ? 'Saving...'
-                    : commercialProjectForm.id
-                      ? 'Update Commercial Project'
-                      : 'Save Commercial Project'}
-                </button>
-              </form>
-
-              <article className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-                <h3 className="font-serif text-2xl text-primary mb-4">Existing Commercial Projects</h3>
-                <div className="space-y-4 max-h-[680px] overflow-y-auto pr-1">
-                  {commercialProjects.map((project) => (
-                    <div key={project.id} className="border border-gray-100 rounded-xl p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-primary">{project.name}</p>
-                          <p className="text-xs text-textGrey mt-1">
-                            {project.category === 'completed' ? 'Completed' : 'Ongoing'}
-                            {' • '}
-                            {project.location}
-                            {' • '}
-                            {formatDateTime(project.updatedAt || project.createdAt)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={() => handleEditCommercialProject(project)}
-                            className="text-sm text-accent font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCommercialProject(project.id)}
-                            disabled={deletingCommercialProjectId === project.id}
-                            className="text-sm text-red-600 font-medium disabled:opacity-60"
-                          >
-                            {deletingCommercialProjectId === project.id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid sm:grid-cols-2 gap-2 text-sm text-textGrey">
-                        <p>Land: {project.landArea || '-'}</p>
-                        <p>Units: {project.units || '-'}</p>
-                      </div>
-
-                      {project.summary ? <p className="mt-3 text-sm text-primary">{project.summary}</p> : null}
+                  <div className="rounded-2xl border border-primary/15 bg-white p-4">
+                    <input
+                      ref={commercialProjectUploadInputRef}
+                      id="commercial-project-image-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCommercialProjectImageSelected}
+                      className="hidden"
+                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label
+                        htmlFor="commercial-project-image-upload"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                      >
+                        {commercialProjectForm.id ? 'Choose Replacement Cover Image' : 'Choose Cover Image'}
+                      </label>
+                      {commercialProjectForm.imageFile ? (
+                        <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{commercialProjectForm.imageFile.name}</span>
+                      ) : (
+                        <span className="text-xs sm:text-sm text-textGrey">No file selected</span>
+                      )}
                     </div>
-                  ))}
-                  {!commercialProjects.length ? <p className="text-sm text-textGrey">No commercial projects yet.</p> : null}
-                </div>
-              </article>
+                    <p className="mt-2 text-xs text-textGrey">
+                      {commercialProjectForm.id
+                        ? 'Upload a new image only if you want to replace the current cover image. Crop ratio is fixed to 3:2.'
+                        : 'Upload one cover image for this project. Crop ratio is fixed to 3:2.'}
+                    </p>
+                  </div>
+
+                  {commercialProjectForm.imagePreviewUrl ? (
+                    <div>
+                      <p className="text-xs text-textGrey mb-2">Selected cover image</p>
+                      <img
+                        src={commercialProjectForm.imagePreviewUrl}
+                        alt="Selected commercial project cover"
+                        className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                      />
+                    </div>
+                  ) : null}
+
+                  {commercialProjectForm.id && !commercialProjectForm.imagePreviewUrl && commercialProjectForm.existingImageUrl ? (
+                    <div>
+                      <p className="text-xs text-textGrey mb-2">Current cover image</p>
+                      <img
+                        src={commercialProjectForm.existingImageUrl}
+                        alt="Current commercial project cover"
+                        className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                      />
+                    </div>
+                  ) : null}
+
+                  <textarea
+                    placeholder="Short summary shown on project card (optional)"
+                    value={commercialProjectForm.summary}
+                    onChange={(event) => {
+                      setCommercialProjectForm((previous) => ({ ...previous, summary: event.target.value }));
+                    }}
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  />
+
+                  <textarea
+                    placeholder="Detailed description shown in View Details"
+                    value={commercialProjectForm.details}
+                    onChange={(event) => {
+                      setCommercialProjectForm((previous) => ({ ...previous, details: event.target.value }));
+                    }}
+                    rows={7}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-y"
+                  />
+
+                  {commercialProjectMessage.text ? (
+                    <p className={`text-sm ${commercialProjectMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                      {commercialProjectMessage.text}
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={isSavingCommercialProject}
+                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                  >
+                    {isSavingCommercialProject
+                      ? 'Saving...'
+                      : commercialProjectForm.id
+                        ? 'Update Commercial Project'
+                        : 'Save Commercial Project'}
+                  </button>
+                </form>
+              ) : null}
+
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 overflow-x-auto">
+                <table className="w-full min-w-[860px] border-collapse">
+                  <thead>
+                    <tr className="bg-bgLight text-left">
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Project</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Status</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Location</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Land</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Units</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Updated</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commercialProjects.map((project) => (
+                      <tr key={project.id} className="border-b border-gray-100">
+                        <td className="px-4 py-3 text-sm text-primary">
+                          <p className="font-medium">{project.name}</p>
+                          <p className="text-xs text-textGrey truncate">{project.slug || project.id}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {project.category === 'completed' ? 'Completed' : 'Ongoing'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">{project.location || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-textGrey">{project.landArea || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-textGrey">{project.units || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {formatDateTime(project.updatedAt || project.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditCommercialProject(project)}
+                              className="text-sm text-accent font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCommercialProject(project.id)}
+                              disabled={deletingCommercialProjectId === project.id}
+                              className="text-sm text-red-600 font-medium disabled:opacity-60"
+                            >
+                              {deletingCommercialProjectId === project.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!commercialProjects.length ? (
+                  <p className="text-sm text-textGrey mt-3">No commercial projects yet.</p>
+                ) : null}
+              </div>
             </div>
           )}
 
           {activeTab === 'galleries' && !isLoadingData && (
-            <div className="mt-6 grid xl:grid-cols-2 gap-6">
-              <form onSubmit={handleGallerySubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-serif text-2xl text-primary">
-                    {galleryForm.id ? 'Edit Gallery Entry' : 'Create Gallery Entry'}
-                  </h3>
-                  {galleryForm.id ? (
+            <div className="mt-6 space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-serif text-2xl text-primary">Galleries</h3>
+                  <p className="text-sm text-textGrey mt-1">
+                    Add one place with 1 to 3 images. Clicking that place in gallery will show only that place's uploaded images.
+                  </p>
+                </div>
+                {!showGalleryForm ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenGalleryForm}
+                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                  >
+                    Add New Gallery
+                  </button>
+                ) : null}
+              </div>
+
+              {showGalleryForm ? (
+                <form onSubmit={handleGallerySubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-serif text-2xl text-primary">
+                      {galleryForm.id ? 'Edit Gallery Entry' : 'Create Gallery Entry'}
+                    </h3>
                     <button
                       type="button"
                       onClick={handleCancelGalleryEdit}
                       className="text-sm text-accent font-medium"
                     >
-                      Cancel Edit
+                      {galleryForm.id ? 'Cancel Edit' : 'Close'}
                     </button>
-                  ) : null}
-                </div>
-                <p className="text-sm text-textGrey">
-                  Add one place with 1 to 3 images. Clicking that place in gallery will show only that place's uploaded images.
-                </p>
+                  </div>
 
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <select
-                    value={galleryForm.galleryType}
-                    onChange={(event) => {
-                      setGalleryForm((previous) => ({ ...previous, galleryType: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  >
-                    <option value="independent">Independent Residences</option>
-                    <option value="commercial">Commercial Projects</option>
-                  </select>
-                  <select
-                    value={galleryForm.category}
-                    onChange={(event) => {
-                      setGalleryForm((previous) => ({ ...previous, category: event.target.value }));
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  >
-                    <option value="ongoing">Ongoing</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Place name"
-                  value={galleryForm.placeName}
-                  onChange={(event) => {
-                    setGalleryForm((previous) => ({ ...previous, placeName: event.target.value }));
-                  }}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  required
-                />
-
-                <div className="rounded-2xl border border-primary/15 bg-white p-4">
-                  <input
-                    ref={galleryUploadInputRef}
-                    id="gallery-image-upload"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleGalleryFilesSelected}
-                    className="hidden"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label
-                      htmlFor="gallery-image-upload"
-                      className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-primary text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <select
+                      value={galleryForm.galleryType}
+                      onChange={(event) => {
+                        setGalleryForm((previous) => ({ ...previous, galleryType: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
                     >
-                      {galleryForm.id ? 'Choose Replacement Images' : 'Choose Images'}
-                    </label>
-                    <span className="text-xs sm:text-sm text-textGrey">
-                      {galleryForm.images.length}/3 selected
-                    </span>
-                    {galleryForm.images.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={handleClearSelectedGalleryImages}
-                        className="text-xs sm:text-sm text-accent font-medium"
+                      <option value="independent">Independent Residences</option>
+                      <option value="commercial">Commercial Projects</option>
+                    </select>
+                    <select
+                      value={galleryForm.category}
+                      onChange={(event) => {
+                        setGalleryForm((previous) => ({ ...previous, category: event.target.value }));
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                    >
+                      <option value="ongoing">Ongoing</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Place name"
+                    value={galleryForm.placeName}
+                    onChange={(event) => {
+                      setGalleryForm((previous) => ({ ...previous, placeName: event.target.value }));
+                    }}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                    required
+                  />
+
+                  <div className="rounded-2xl border border-primary/15 bg-white p-4">
+                    <input
+                      ref={galleryUploadInputRef}
+                      id="gallery-image-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGalleryFilesSelected}
+                      className="hidden"
+                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label
+                        htmlFor="gallery-image-upload"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
                       >
-                        Clear All
-                      </button>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-xs text-textGrey">
-                    {galleryForm.id
-                      ? 'You can optionally upload 1 to 3 replacement images. First image is used as cover.'
-                      : 'Upload minimum 1 image and maximum 3 images for this place. First image is used as cover.'}
-                  </p>
-                  {galleryForm.id ? (
-                    <p className="mt-1 text-[11px] text-textGrey">
-                      If you do not choose new images, existing images will stay unchanged.
-                    </p>
-                  ) : null}
-                </div>
-
-                {galleryForm.id && galleryForm.images.length === 0 && galleryForm.existingImages.length > 0 ? (
-                  <div>
-                    <p className="text-xs text-textGrey mb-2">Current images</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {galleryForm.existingImages.map((imageUrl, imageIndex) => (
-                        <img
-                          key={`existing-${imageIndex}`}
-                          src={imageUrl}
-                          alt={galleryForm.placeName || 'Current gallery image'}
-                          className="h-24 w-full rounded-xl object-cover border border-gray-200"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {galleryForm.images.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {galleryForm.images.map((item, imageIndex) => (
-                      <div key={`${item.name}-${imageIndex}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
-                        <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
-                        <div className="p-2">
-                          <p className="text-[11px] text-primary truncate">{item.name}</p>
-                          <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
-                        </div>
+                        {galleryForm.id ? 'Choose Replacement Images' : 'Choose Images'}
+                      </label>
+                      <span className="text-xs sm:text-sm text-textGrey">
+                        {galleryForm.images.length}/3 selected
+                      </span>
+                      {galleryForm.images.length > 0 ? (
                         <button
                           type="button"
-                          onClick={() => handleRemoveSelectedGalleryImage(imageIndex)}
-                          className="absolute top-1 right-1 bg-black/65 text-white text-[10px] px-2 py-1 rounded"
+                          onClick={handleClearSelectedGalleryImages}
+                          className="text-xs sm:text-sm text-accent font-medium"
                         >
-                          Remove
+                          Clear All
                         </button>
-                      </div>
-                    ))}
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs text-textGrey">
+                      {galleryForm.id
+                        ? 'You can optionally upload 1 to 3 replacement images. First image is used as cover.'
+                        : 'Upload minimum 1 image and maximum 3 images for this place. First image is used as cover.'}
+                    </p>
+                    {galleryForm.id ? (
+                      <p className="mt-1 text-[11px] text-textGrey">
+                        If you do not choose new images, existing images will stay unchanged.
+                      </p>
+                    ) : null}
                   </div>
-                ) : null}
 
-                {galleryMessage.text ? (
-                  <p className={`text-sm ${galleryMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                    {galleryMessage.text}
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={isSavingGalleryEntry}
-                  className="bg-primary text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
-                >
-                  {isSavingGalleryEntry ? 'Saving...' : galleryForm.id ? 'Update Gallery Entry' : 'Save Gallery Entry'}
-                </button>
-              </form>
-
-              <article className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-                <h3 className="font-serif text-2xl text-primary mb-4">Existing Gallery Entries</h3>
-                <div className="space-y-4 max-h-[640px] overflow-y-auto pr-1">
-                  {galleryEntries.map((entry) => (
-                    <div key={entry.id} className="border border-gray-100 rounded-xl p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-primary">{entry.placeName}</p>
-                          <p className="text-xs text-textGrey mt-1">
-                            {entry.galleryType === 'commercial' ? 'Commercial Projects' : 'Independent Residences'}
-                            {' • '}
-                            {entry.category}
-                            {' • '}
-                            {formatDateTime(entry.createdAt)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={() => handleEditGalleryEntry(entry)}
-                            className="text-sm text-accent font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteGalleryEntry(entry.id)}
-                            disabled={deletingGalleryEntryId === entry.id}
-                            className="text-sm text-red-600 font-medium disabled:opacity-60"
-                          >
-                            {deletingGalleryEntryId === entry.id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {entry.images.map((imageUrl, imageIndex) => (
+                  {galleryForm.id && galleryForm.images.length === 0 && galleryForm.existingImages.length > 0 ? (
+                    <div>
+                      <p className="text-xs text-textGrey mb-2">Current images</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {galleryForm.existingImages.map((imageUrl, imageIndex) => (
                           <img
-                            key={`${entry.id}-${imageIndex}`}
+                            key={`existing-${imageIndex}`}
                             src={imageUrl}
-                            alt={entry.placeName}
-                            className="h-20 w-full rounded-lg object-cover"
+                            alt={galleryForm.placeName || 'Current gallery image'}
+                            className="h-24 w-full rounded-xl object-cover border border-gray-200"
                           />
                         ))}
                       </div>
                     </div>
-                  ))}
-                  {!galleryEntries.length ? <p className="text-sm text-textGrey">No gallery entries yet.</p> : null}
-                </div>
-              </article>
+                  ) : null}
+
+                  {galleryForm.images.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {galleryForm.images.map((item, imageIndex) => (
+                        <div key={`${item.name}-${imageIndex}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
+                          <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
+                          <div className="p-2">
+                            <p className="text-[11px] text-primary truncate">{item.name}</p>
+                            <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSelectedGalleryImage(imageIndex)}
+                            className="absolute top-1 right-1 bg-black/65 text-white text-[10px] px-2 py-1 rounded"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {galleryMessage.text ? (
+                    <p className={`text-sm ${galleryMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                      {galleryMessage.text}
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={isSavingGalleryEntry}
+                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                  >
+                    {isSavingGalleryEntry ? 'Saving...' : galleryForm.id ? 'Update Gallery Entry' : 'Save Gallery Entry'}
+                  </button>
+                </form>
+              ) : null}
+
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 overflow-x-auto">
+                <table className="w-full min-w-[880px] border-collapse">
+                  <thead>
+                    <tr className="bg-bgLight text-left">
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Place</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Type</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Status</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Images</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Updated</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {galleryEntries.map((entry) => (
+                      <tr key={entry.id} className="border-b border-gray-100">
+                        <td className="px-4 py-3 text-sm text-primary">
+                          <p className="font-medium">{entry.placeName}</p>
+                          <p className="text-xs text-textGrey truncate">{entry.id}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {entry.galleryType === 'commercial' ? 'Commercial Projects' : 'Independent Residences'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {entry.category === 'completed' ? 'Completed' : 'Ongoing'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {Array.isArray(entry.images) ? entry.images.length : 0}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {formatDateTime(entry.updatedAt || entry.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditGalleryEntry(entry)}
+                              className="text-sm text-accent font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGalleryEntry(entry.id)}
+                              disabled={deletingGalleryEntryId === entry.id}
+                              className="text-sm text-red-600 font-medium disabled:opacity-60"
+                            >
+                              {deletingGalleryEntryId === entry.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!galleryEntries.length ? <p className="text-sm text-textGrey mt-3">No gallery entries yet.</p> : null}
+              </div>
             </div>
           )}
 
           {activeTab === 'blogs' && !isLoadingData && (
-            <div className="mt-6 grid xl:grid-cols-2 gap-6">
-              <form onSubmit={handleBlogSubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-2xl text-primary">{blogForm.id ? 'Edit Article' : 'Write New Article'}</h3>
-                  {blogForm.id ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        resetBlogForm();
-                        setBlogMessage({ type: '', text: '' });
-                      }}
-                      className="text-sm text-accent font-medium"
-                    >
-                      New Draft
-                    </button>
-                  ) : null}
+            <div className="mt-6 space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-serif text-2xl text-primary">Journals & Blogs</h3>
+                  <p className="text-sm text-textGrey mt-1">Create, edit, and publish journal content for the website.</p>
                 </div>
+                {!showBlogForm ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenBlogForm}
+                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                  >
+                    Add New Article
+                  </button>
+                ) : null}
+              </div>
 
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Title"
-                    value={blogForm.title}
-                    onChange={(event) => setBlogForm((previous) => ({ ...previous, title: event.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-                  <input
-                    type="text"
-                    placeholder="Category"
-                    value={blogForm.category}
-                    onChange={(event) => setBlogForm((previous) => ({ ...previous, category: event.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                    required
-                  />
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Author"
-                    value={blogForm.author}
-                    onChange={(event) => setBlogForm((previous) => ({ ...previous, author: event.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Slug (optional)"
-                    value={blogForm.slug}
-                    onChange={(event) => setBlogForm((previous) => ({ ...previous, slug: event.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-primary/15 bg-white p-4">
-                  <input
-                    ref={blogUploadInputRef}
-                    id="blog-cover-image-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleBlogImageSelected}
-                    className="hidden"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label
-                      htmlFor="blog-cover-image-upload"
-                      className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-primary text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
-                    >
-                      {blogForm.id ? 'Choose Replacement Cover Image' : 'Choose Cover Image'}
-                    </label>
-                    {blogForm.imageFile ? (
-                      <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{blogForm.imageFile.name}</span>
-                    ) : (
-                      <span className="text-xs sm:text-sm text-textGrey">No file selected</span>
-                    )}
-                    {blogForm.imageFile ? (
+              {showBlogForm ? (
+                <div className="grid xl:grid-cols-2 gap-6">
+                  <form onSubmit={handleBlogSubmit} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-serif text-2xl text-primary">
+                        {blogForm.id ? 'Edit Article' : 'Write New Article'}
+                      </h3>
                       <button
                         type="button"
-                        onClick={handleClearSelectedBlogImage}
-                        className="text-xs sm:text-sm text-accent font-medium"
+                        onClick={handleCloseBlogForm}
+                        className="text-sm text-accent font-medium"
                       >
-                        Clear
+                        {blogForm.id ? 'Cancel Edit' : 'Close'}
                       </button>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-xs text-textGrey">
-                    {blogForm.id
-                      ? 'Upload a new image only if you want to replace the current cover image. Crop ratio is fixed to 4:3.'
-                      : 'Upload one cover image for this article. Crop ratio is fixed to 4:3.'}
-                  </p>
-                </div>
-
-                {blogForm.imagePreviewUrl ? (
-                  <div>
-                    <p className="text-xs text-textGrey mb-2">Selected cover image</p>
-                    <img
-                      src={blogForm.imagePreviewUrl}
-                      alt="Selected blog cover"
-                      className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
-                    />
-                  </div>
-                ) : null}
-
-                {blogForm.id && !blogForm.imagePreviewUrl && blogForm.existingImageUrl ? (
-                  <div>
-                    <p className="text-xs text-textGrey mb-2">Current cover image</p>
-                    <img
-                      src={blogForm.existingImageUrl}
-                      alt="Current blog cover"
-                      className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
-                    />
-                  </div>
-                ) : null}
-
-                <input
-                  type="datetime-local"
-                  value={blogForm.publishedAt}
-                  onChange={(event) => setBlogForm((previous) => ({ ...previous, publishedAt: event.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-
-                <textarea
-                  placeholder="Short excerpt"
-                  value={blogForm.excerpt}
-                  onChange={(event) => setBlogForm((previous) => ({ ...previous, excerpt: event.target.value }))}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                  required
-                />
-
-                <div>
-                  <p className="text-sm font-medium text-primary mb-2">Article Content</p>
-                  <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
-                    <ReactQuill
-                      theme="snow"
-                      value={blogForm.content}
-                      onChange={(value) => setBlogForm((previous) => ({ ...previous, content: value }))}
-                      modules={BLOG_EDITOR_MODULES}
-                      formats={BLOG_EDITOR_FORMATS}
-                      placeholder="Write your journal content here..."
-                      className="admin-blog-editor"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-textGrey">
-                  Use the toolbar to format headings, bold, italic, lists, quotes, links, and alignment like a document editor.
-                </p>
-
-                <label className="inline-flex items-center gap-2 text-sm text-primary">
-                  <input
-                    type="checkbox"
-                    checked={blogForm.isPublished}
-                    onChange={(event) => setBlogForm((previous) => ({ ...previous, isPublished: event.target.checked }))}
-                  />
-                  Publish immediately
-                </label>
-
-                {blogMessage.text ? (
-                  <p className={`text-sm ${blogMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                    {blogMessage.text}
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={isSavingBlog}
-                  className="bg-primary text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
-                >
-                  {isSavingBlog ? 'Saving...' : blogForm.id ? 'Update Article' : 'Publish Article'}
-                </button>
-              </form>
-
-              <div className="space-y-6">
-                <article className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-                  <h3 className="font-serif text-2xl text-primary mb-4">Live Preview</h3>
-                  <h4 className="font-serif text-3xl text-primary leading-tight">{blogForm.title || 'Your title will appear here'}</h4>
-                  {blogForm.excerpt ? (
-                    <p className="mt-4 text-textGrey border-l-4 border-accent pl-4">{blogForm.excerpt}</p>
-                  ) : null}
-                  {blogForm.content ? (
-                    <div className="mt-6">
-                      <JournalContent content={blogForm.content} />
                     </div>
-                  ) : (
-                    <p className="mt-6 text-sm text-textGrey">Start writing to preview your journal formatting.</p>
-                  )}
-                </article>
 
-                <article className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
-                  <h3 className="font-serif text-2xl text-primary mb-4">Existing Articles</h3>
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Title"
+                        value={blogForm.title}
+                        onChange={(event) => setBlogForm((previous) => ({ ...previous, title: event.target.value }))}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category"
+                        value={blogForm.category}
+                        onChange={(event) => setBlogForm((previous) => ({ ...previous, category: event.target.value }))}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Author"
+                        value={blogForm.author}
+                        onChange={(event) => setBlogForm((previous) => ({ ...previous, author: event.target.value }))}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Slug (optional)"
+                        value={blogForm.slug}
+                        onChange={(event) => setBlogForm((previous) => ({ ...previous, slug: event.target.value }))}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-primary/15 bg-white p-4">
+                      <input
+                        ref={blogUploadInputRef}
+                        id="blog-cover-image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBlogImageSelected}
+                        className="hidden"
+                      />
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label
+                          htmlFor="blog-cover-image-upload"
+                          className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                        >
+                          {blogForm.id ? 'Choose Replacement Cover Image' : 'Choose Cover Image'}
+                        </label>
+                        {blogForm.imageFile ? (
+                          <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{blogForm.imageFile.name}</span>
+                        ) : (
+                          <span className="text-xs sm:text-sm text-textGrey">No file selected</span>
+                        )}
+                        {blogForm.imageFile ? (
+                          <button
+                            type="button"
+                            onClick={handleClearSelectedBlogImage}
+                            className="text-xs sm:text-sm text-accent font-medium"
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-xs text-textGrey">
+                        {blogForm.id
+                          ? 'Upload a new image only if you want to replace the current cover image. Crop ratio is fixed to 4:3.'
+                          : 'Upload one cover image for this article. Crop ratio is fixed to 4:3.'}
+                      </p>
+                    </div>
+
+                    {blogForm.imagePreviewUrl ? (
+                      <div>
+                        <p className="text-xs text-textGrey mb-2">Selected cover image</p>
+                        <img
+                          src={blogForm.imagePreviewUrl}
+                          alt="Selected blog cover"
+                          className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                        />
+                      </div>
+                    ) : null}
+
+                    {blogForm.id && !blogForm.imagePreviewUrl && blogForm.existingImageUrl ? (
+                      <div>
+                        <p className="text-xs text-textGrey mb-2">Current cover image</p>
+                        <img
+                          src={blogForm.existingImageUrl}
+                          alt="Current blog cover"
+                          className="h-40 w-full sm:w-72 rounded-xl object-cover border border-gray-200"
+                        />
+                      </div>
+                    ) : null}
+
+                    <input
+                      type="datetime-local"
+                      value={blogForm.publishedAt}
+                      onChange={(event) => setBlogForm((previous) => ({ ...previous, publishedAt: event.target.value }))}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+
+                    <textarea
+                      placeholder="Short excerpt"
+                      value={blogForm.excerpt}
+                      onChange={(event) => setBlogForm((previous) => ({ ...previous, excerpt: event.target.value }))}
+                      rows={3}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                      required
+                    />
+
+                    <div>
+                      <p className="text-sm font-medium text-primary mb-2">Article Content</p>
+                      <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
+                        <ReactQuill
+                          theme="snow"
+                          value={blogForm.content}
+                          onChange={(value) => setBlogForm((previous) => ({ ...previous, content: value }))}
+                          modules={BLOG_EDITOR_MODULES}
+                          formats={BLOG_EDITOR_FORMATS}
+                          placeholder="Write your journal content here..."
+                          className="admin-blog-editor"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-textGrey">
+                      Use the toolbar to format headings, bold, italic, lists, quotes, links, and alignment like a document editor.
+                    </p>
+
+                    <label className="inline-flex items-center gap-2 text-sm text-primary">
+                      <input
+                        type="checkbox"
+                        checked={blogForm.isPublished}
+                        onChange={(event) => setBlogForm((previous) => ({ ...previous, isPublished: event.target.checked }))}
+                      />
+                      Publish immediately
+                    </label>
+
+                    {blogMessage.text ? (
+                      <p className={`text-sm ${blogMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                        {blogMessage.text}
+                      </p>
+                    ) : null}
+
+                    <button
+                      type="submit"
+                      disabled={isSavingBlog}
+                      className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                    >
+                      {isSavingBlog ? 'Saving...' : blogForm.id ? 'Update Article' : 'Publish Article'}
+                    </button>
+                  </form>
+
+                  <div className="space-y-6">
+                    <article className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6">
+                      <h3 className="font-serif text-2xl text-primary mb-4">Live Preview</h3>
+                      <h4 className="font-serif text-3xl text-primary leading-tight">
+                        {blogForm.title || 'Your title will appear here'}
+                      </h4>
+                      {blogForm.excerpt ? (
+                        <p className="mt-4 text-textGrey border-l-4 border-accent pl-4">{blogForm.excerpt}</p>
+                      ) : null}
+                      {blogForm.content ? (
+                        <div className="mt-6">
+                          <JournalContent content={blogForm.content} />
+                        </div>
+                      ) : (
+                        <p className="mt-6 text-sm text-textGrey">Start writing to preview your journal formatting.</p>
+                      )}
+                    </article>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 overflow-x-auto">
+                <table className="w-full min-w-[980px] border-collapse">
+                  <thead>
+                    <tr className="bg-bgLight text-left">
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Title</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Category</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Author</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Status</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Published</th>
+                      <th className="px-4 py-3 text-sm font-semibold text-primary">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {blogs.map((blog) => (
-                      <div key={blog.id} className="border border-gray-100 rounded-xl p-3 sm:p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-primary">{blog.title}</p>
-                            <p className="text-xs text-textGrey mt-1">
-                              {blog.category} • {formatDateTime(blog.publishedAt)}
-                            </p>
-                          </div>
+                      <tr key={blog.id} className="border-b border-gray-100">
+                        <td className="px-4 py-3 text-sm text-primary">
+                          <p className="font-medium">{blog.title}</p>
+                          <p className="text-xs text-textGrey truncate">{blog.slug || blog.id}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">{blog.category}</td>
+                        <td className="px-4 py-3 text-sm text-textGrey">{blog.author || '-'}</td>
+                        <td className="px-4 py-3 text-sm">
                           <span
-                            className={`text-xs px-2 py-1 rounded-full ${
-                              blog.isPublished ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                            }`}
+                            className={`text-xs px-2 py-1 rounded-full ${blog.isPublished ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}
                           >
                             {blog.isPublished ? 'Published' : 'Draft'}
                           </span>
-                        </div>
-                        <div className="mt-3 flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              resetBlogCropState();
-                              setBlogForm((previous) => {
-                                revokePreviewUrl(previous.imagePreviewUrl);
-                                return mapBlogToForm(blog);
-                              });
-                              setBlogMessage({ type: '', text: '' });
-                            }}
-                            className="text-sm text-accent font-medium"
-                          >
-                            Edit
-                          </button>
-                          <Link
-                            to={`/blog/${blog.slug || blog.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary font-medium"
-                          >
-                            View
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteBlog(blog.id)}
-                            disabled={deletingBlogId === blog.id}
-                            className="text-sm text-red-600 font-medium disabled:opacity-60"
-                          >
-                            {deletingBlogId === blog.id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-textGrey">
+                          {formatDateTime(blog.publishedAt || blog.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditBlog(blog)}
+                              className="text-sm text-accent font-medium"
+                            >
+                              Edit
+                            </button>
+                            <Link
+                              to={`/blog/${blog.slug || blog.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary font-medium"
+                            >
+                              View
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBlog(blog.id)}
+                              disabled={deletingBlogId === blog.id}
+                              className="text-sm text-red-600 font-medium disabled:opacity-60"
+                            >
+                              {deletingBlogId === blog.id ? 'Deleting...' : 'Delete'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                    {!blogs.length ? <p className="text-sm text-textGrey">No articles available.</p> : null}
-                  </div>
-                </article>
+                  </tbody>
+                </table>
+                {!blogs.length ? <p className="text-sm text-textGrey mt-3">No articles available.</p> : null}
               </div>
             </div>
           )}
@@ -1980,7 +2113,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyBlogImageCrop}
                   disabled={isApplyingBlogCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-primary text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
                 >
                   {isApplyingBlogCrop ? 'Applying...' : 'Apply Crop'}
                 </button>
@@ -2039,7 +2172,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyCommercialImageCrop}
                   disabled={isApplyingCommercialCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-primary text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
                 >
                   {isApplyingCommercialCrop ? 'Applying...' : 'Apply Crop'}
                 </button>
