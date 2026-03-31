@@ -1135,41 +1135,41 @@ const Admin = () => {
     }
   };
 
-  if (!token) {
+if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-zinc-800 to-zinc-950 text-white flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md bg-white backdrop-blur-md rounded-2xl border border-white/15 p-8 shadow-2xl">
-          <h1 className="font-serif text-3xl mb-2">Admin Console</h1>
-          <p className="text-gray-300 text-sm mb-6">Sign in to manage newsletter subscriptions, contact inquiries, and journals.</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
+          <h1 className="font-serif text-3xl mb-2 text-gray-900">Admin Console</h1>
+          <p className="text-gray-500 text-sm mb-6">Sign in to manage newsletter subscriptions, contact inquiries, and journals.</p>
 
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm mb-2">Username</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
               <input
                 type="text"
                 value={loginForm.username}
                 onChange={(event) => setLoginForm((previous) => ({ ...previous, username: event.target.value }))}
-                className="w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm mb-2">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <input
                 type="password"
                 value={loginForm.password}
                 onChange={(event) => setLoginForm((previous) => ({ ...previous, password: event.target.value }))}
-                className="w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
                 required
               />
             </div>
 
-            {authError && <p className="text-red-300 text-sm">{authError}</p>}
+            {authError && <p className="text-red-500 text-sm">{authError}</p>}
 
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-accent text-white py-3 rounded-xl font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
+              className="w-full bg-[#C6A769] text-white py-3 rounded-xl font-medium hover:bg-[#b5955a] transition-colors disabled:opacity-70 mt-2"
             >
               {isLoggingIn ? 'Signing in...' : 'Login'}
             </button>
@@ -1178,7 +1178,6 @@ const Admin = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-bgLight pt-10 sm:pt-12 pb-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
