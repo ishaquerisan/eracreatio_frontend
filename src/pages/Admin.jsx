@@ -28,6 +28,8 @@ import {
 const ADMIN_TOKEN_STORAGE_KEY = 'era_admin_token';
 const COMMERCIAL_PROJECT_IMAGE_ASPECT = 3 / 2;
 const BLOG_IMAGE_ASPECT = 4 / 3;
+const IMAGE_MAX_DIMENSION = 1920;
+const IMAGE_COMPRESSION_QUALITY = 0.82;
 const BLOG_EDITOR_MODULES = {
   toolbar: [
     [{ header: [1, 2, 3, false] }],
@@ -191,7 +193,8 @@ function loadImageElement(imageSrc) {
   });
 }
 
-async function createCroppedImageBlob(imageSrc, cropAreaPixels) {
+async function createCroppedImageBlob(imageSrc, cropAreaPixels, options = {}) {
+  const { maxDimension = IMAGE_MAX_DIMENSION, quality = IMAGE_COMPRESSION_QUALITY } = options;
   const image = await loadImageElement(imageSrc);
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -202,9 +205,12 @@ async function createCroppedImageBlob(imageSrc, cropAreaPixels) {
 
   const targetWidth = Math.max(1, Math.round(cropAreaPixels.width));
   const targetHeight = Math.max(1, Math.round(cropAreaPixels.height));
+  const scale = Math.min(1, maxDimension / targetWidth, maxDimension / targetHeight);
+  const outputWidth = Math.max(1, Math.round(targetWidth * scale));
+  const outputHeight = Math.max(1, Math.round(targetHeight * scale));
 
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
 
   context.drawImage(
     image,
@@ -214,8 +220,8 @@ async function createCroppedImageBlob(imageSrc, cropAreaPixels) {
     cropAreaPixels.height,
     0,
     0,
-    targetWidth,
-    targetHeight
+    outputWidth,
+    outputHeight
   );
 
   return new Promise((resolve, reject) => {
@@ -229,9 +235,51 @@ async function createCroppedImageBlob(imageSrc, cropAreaPixels) {
         resolve(blob);
       },
       'image/jpeg',
-      0.92
+      quality
     );
   });
+}
+
+async function compressImageFile(file, options = {}) {
+  const { maxDimension = IMAGE_MAX_DIMENSION, quality = IMAGE_COMPRESSION_QUALITY } = options;
+  const objectUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await loadImageElement(objectUrl);
+    const scale = Math.min(1, maxDimension / image.width, maxDimension / image.height);
+    const targetWidth = Math.max(1, Math.round(image.width * scale));
+    const targetHeight = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      throw new Error('Could not process selected image.');
+    }
+
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (!result) {
+            reject(new Error('Could not compress selected image.'));
+            return;
+          }
+
+          resolve(result);
+        },
+        'image/jpeg',
+        quality
+      );
+    });
+
+    const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
+    return new File([blob], `${baseName}-compressed.jpg`, { type: 'image/jpeg' });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function createEmptyGalleryForm() {
@@ -974,7 +1022,7 @@ const Admin = () => {
     }
   };
 
-  const handleGalleryFilesSelected = (event) => {
+  const handleGalleryFilesSelected = async (event) => {
     const incomingFiles = Array.from(event.target.files || []);
 
     if (!incomingFiles.length) {
@@ -982,19 +1030,33 @@ const Admin = () => {
     }
 
     setGalleryMessage({ type: '', text: '' });
-    setGalleryForm((previous) => {
-      const availableSlots = Math.max(0, 3 - previous.images.length);
-      const acceptedFiles = incomingFiles.slice(0, availableSlots).map(createGalleryPreviewFile);
+    const availableSlots = Math.max(0, 3 - galleryForm.images.length);
+    const selectedFiles = incomingFiles.slice(0, availableSlots);
 
-      if (incomingFiles.length > availableSlots) {
-        setGalleryMessage({ type: 'error', text: 'Maximum 3 images allowed per place.' });
+    if (incomingFiles.length > availableSlots) {
+      setGalleryMessage({ type: 'error', text: 'Maximum 3 images allowed per place.' });
+    }
+
+    if (!selectedFiles.length) {
+      if (galleryUploadInputRef.current) {
+        galleryUploadInputRef.current.value = '';
       }
+      return;
+    }
 
-      return {
+    try {
+      const compressedFiles = await Promise.all(selectedFiles.map((file) => compressImageFile(file)));
+
+      setGalleryForm((previous) => ({
         ...previous,
-        images: [...previous.images, ...acceptedFiles],
-      };
-    });
+        images: [...previous.images, ...compressedFiles.map(createGalleryPreviewFile)],
+      }));
+    } catch (error) {
+      setGalleryMessage({
+        type: 'error',
+        text: error.message || 'Could not compress selected images.',
+      });
+    }
 
     if (galleryUploadInputRef.current) {
       galleryUploadInputRef.current.value = '';

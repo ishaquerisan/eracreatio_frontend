@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+const sharp = require('sharp');
 
 const { getPool } = require('./db');
 const initDb = require('./initDb');
@@ -27,6 +28,8 @@ const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']);
 const DEFAULT_COMMERCIAL_PROJECT_IMAGE =
   'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600';
+const IMAGE_MAX_DIMENSION = 1920;
+const IMAGE_JPEG_QUALITY = 80;
 
 fs.mkdirSync(GALLERY_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(COMMERCIAL_PROJECT_UPLOADS_DIR, { recursive: true });
@@ -37,9 +40,8 @@ const galleryUpload = multer({
     destination: (_req, _file, cb) => {
       cb(null, GALLERY_UPLOADS_DIR);
     },
-    filename: (_req, file, cb) => {
-      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
+    filename: (_req, _file, cb) => {
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
     },
   }),
   limits: {
@@ -59,9 +61,8 @@ const commercialProjectUpload = multer({
     destination: (_req, _file, cb) => {
       cb(null, COMMERCIAL_PROJECT_UPLOADS_DIR);
     },
-    filename: (_req, file, cb) => {
-      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
+    filename: (_req, _file, cb) => {
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
     },
   }),
   limits: {
@@ -81,9 +82,8 @@ const blogUpload = multer({
     destination: (_req, _file, cb) => {
       cb(null, BLOG_UPLOADS_DIR);
     },
-    filename: (_req, file, cb) => {
-      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
+    filename: (_req, _file, cb) => {
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
     },
   }),
   limits: {
@@ -227,6 +227,46 @@ function removeUploadedFiles(files) {
       // Ignore cleanup failures to avoid masking the main error.
     });
   }
+}
+
+async function compressUploadedImage(file) {
+  if (!file || !file.path) {
+    return null;
+  }
+
+  const tempPath = `${file.path}.tmp`;
+
+  try {
+    await sharp(file.path)
+      .rotate()
+      .resize({
+        width: IMAGE_MAX_DIMENSION,
+        height: IMAGE_MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
+      .toFile(tempPath);
+
+    await fs.promises.rename(tempPath, file.path);
+    return file;
+  } catch (error) {
+    await fs.promises.unlink(tempPath).catch(() => {
+      // Ignore cleanup failures from partial compression writes.
+    });
+    throw error;
+  }
+}
+
+async function compressUploadedImages(files) {
+  const normalized = Array.isArray(files) ? files.filter(Boolean) : [];
+
+  if (!normalized.length) {
+    return [];
+  }
+
+  await Promise.all(normalized.map((file) => compressUploadedImage(file)));
+  return normalized;
 }
 
 function normalizeStoredImageUrl(req, value) {
@@ -818,6 +858,13 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
     return res.status(400).json({ message: 'Please upload at least 1 and at most 3 images for each place.' });
   }
 
+  try {
+    await compressUploadedImages(files);
+  } catch (_error) {
+    removeUploadedFiles(files);
+    return res.status(500).json({ message: 'Could not process gallery images.' });
+  }
+
   const imageUrls = files.map((file) => `/uploads/galleries/${file.filename}`);
   const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
 
@@ -877,6 +924,13 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
   if (files.length > 3) {
     removeUploadedFiles(files);
     return res.status(400).json({ message: 'Please upload at most 3 image files.' });
+  }
+
+  try {
+    await compressUploadedImages(files);
+  } catch (_error) {
+    removeUploadedFiles(files);
+    return res.status(500).json({ message: 'Could not process gallery images.' });
   }
 
   try {
@@ -1034,6 +1088,13 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
     return res.status(400).json({ message: 'Please upload a cover image.' });
   }
 
+  try {
+    await compressUploadedImage(uploadedFile);
+  } catch (_error) {
+    removeUploadedFiles([uploadedFile]);
+    return res.status(500).json({ message: 'Could not process commercial project image.' });
+  }
+
   const imageUrl = `/uploads/commercial-projects/${uploadedFile.filename}`;
 
   try {
@@ -1100,6 +1161,15 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
   if (!name || !location || !landArea || !units) {
     removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Name, location, land area, and units are required.' });
+  }
+
+  if (uploadedFile) {
+    try {
+      await compressUploadedImage(uploadedFile);
+    } catch (_error) {
+      removeUploadedFiles([uploadedFile]);
+      return res.status(500).json({ message: 'Could not process commercial project image.' });
+    }
   }
 
   try {
@@ -1262,6 +1332,13 @@ app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (re
   }
 
   try {
+    await compressUploadedImage(uploadedFile);
+  } catch (_error) {
+    removeUploadedFiles([uploadedFile]);
+    return res.status(500).json({ message: 'Could not process blog image.' });
+  }
+
+  try {
     const pool = await getPool();
     const slug = await createUniqueSlug(pool, title, preferredSlug);
 
@@ -1338,6 +1415,15 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
     removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Published date is invalid.' });
+  }
+
+  if (uploadedFile) {
+    try {
+      await compressUploadedImage(uploadedFile);
+    } catch (_error) {
+      removeUploadedFiles([uploadedFile]);
+      return res.status(500).json({ message: 'Could not process blog image.' });
+    }
   }
 
   try {
