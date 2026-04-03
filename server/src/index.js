@@ -25,9 +25,7 @@ const GALLERY_UPLOADS_DIR = path.join(UPLOADS_DIR, 'galleries');
 const COMMERCIAL_PROJECT_UPLOADS_DIR = path.join(UPLOADS_DIR, 'commercial-projects');
 const BLOG_UPLOADS_DIR = path.join(UPLOADS_DIR, 'blogs');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
-const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']);
-const DEFAULT_COMMERCIAL_PROJECT_IMAGE =
-  'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600';
+const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
@@ -356,7 +354,7 @@ function mapCommercialProjectRow(row, req) {
     status: category === 'completed' ? 'Completed' : 'Ongoing',
     landArea: row.landArea,
     units: row.units,
-    image: normalizeStoredImageUrl(req, row.imageUrl || DEFAULT_COMMERCIAL_PROJECT_IMAGE),
+    image: normalizeStoredImageUrl(req, row.imageUrl ),
     summary: row.summary || '',
     details: row.details || '',
     createdAt: row.createdAt,
@@ -1191,7 +1189,7 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
 
     const nextImageUrl = uploadedFile
       ? `/uploads/commercial-projects/${uploadedFile.filename}`
-      : existingRows[0].imageUrl || DEFAULT_COMMERCIAL_PROJECT_IMAGE;
+      : existingRows[0].imageUrl;
 
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug, projectId);
 
