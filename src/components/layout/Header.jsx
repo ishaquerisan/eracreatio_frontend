@@ -40,29 +40,28 @@ const Header = () => {
     >
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between h-20 lg:h-24">
-          {/* Logo */}
-          <Link to="/" className="flex items-center">
+          {/* Logo - Scaled down for lg to free up horizontal space, removed mt */}
+          <Link to="/" className="flex items-center shrink-0">
             <img
               src="/logo.svg"
               alt="Era Creatio Developers LLP"
-              className="h-12 lg:h-14 w-auto"
+              className="h-10 lg:h-10 xl:h-14 w-auto transition-all"
             />
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-8">
+          {/* Desktop Navigation - Removed mt-5 to fix vertical alignment */}
+          <nav className="hidden lg:flex items-center space-x-3 xl:space-x-8">
             {navLinks.map((link) => (
               <div key={link.name} className="relative group">
                 <Link
                   to={link.path}
-                  className={`text-sm font-medium transition-colors hover:text-accent ${
+                  className={`text-xs xl:text-sm whitespace-nowrap font-medium transition-colors hover:text-accent ${
                     solidBg ? 'text-primary' : 'text-white'
                   } ${location.pathname === link.path ? 'text-accent' : ''}`}
                   onMouseEnter={() => link.hasDropdown && setVillaDropdownOpen(true)}
                 >
                   {link.name}
                 </Link>
-                
               </div>
             ))}
           </nav>
@@ -70,7 +69,7 @@ const Header = () => {
           {/* CTA Button */}
           <Link
             to="/contact"
-            className="hidden lg:block bg-accent text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-all font-medium"
+            className="hidden lg:block bg-accent text-white px-4 py-2 text-sm xl:px-6 xl:py-3 xl:text-base whitespace-nowrap rounded-luxury hover:bg-opacity-90 transition-all font-medium shrink-0"
           >
             Book a Site Visit
           </Link>

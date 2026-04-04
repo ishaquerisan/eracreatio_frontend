@@ -44,7 +44,7 @@ const HeroSlider = () => {
      * MOBILE: aspect-[4/3] makes the slider taller than a standard video (16:9).
      * DESKTOP: md:h-screen restores the full-screen immersive experience.
      */
-    <div className="relative w-full aspect-[4/3] md:aspect-auto md:h-screen overflow-hidden bg-neutral-900">
+    <div className="relative w-full aspect-[4/3.6] md:aspect-auto md:h-screen overflow-hidden bg-neutral-900">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide}

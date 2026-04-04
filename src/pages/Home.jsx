@@ -18,7 +18,7 @@ const Home = () => {
   ];
 
   return (
-    <main className="pt-16 md:pt-0 overflow-x-hidden">
+    <main className="overflow-x-hidden">
       <HeroSlider />
       
       {/* CounterSection should handle its own internal responsiveness, 
@@ -27,7 +27,7 @@ const Home = () => {
       <CounterSection />
 
       {/* Introduction Section */}
-      <section className="py-10 sm:py-16 lg:py-20 bg-bgLight">
+      <section className="py-10 sm:py-16 lg:py-20 bg-bgLight ">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <motion.div
