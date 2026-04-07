@@ -142,7 +142,42 @@ async function initDb() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_commercial_projects_category (category)
-      )`
+      )`,
+
+      // 8. Villas
+      `CREATE TABLE IF NOT EXISTS villas (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        slug VARCHAR(180) NOT NULL UNIQUE,
+        name VARCHAR(180) NOT NULL,
+        location VARCHAR(180) NOT NULL,
+        acres VARCHAR(80) NULL,
+        total_villas VARCHAR(80) NULL,
+        banner_image_url VARCHAR(500) NULL,
+        status ENUM('draft', 'ongoing', 'completed') NOT NULL DEFAULT 'draft',
+        brochure_pdf_url VARCHAR(500) NULL,
+        description LONGTEXT NULL,
+        overview_title VARCHAR(255) NULL,
+        overview_description LONGTEXT NULL,
+        overview_total_land VARCHAR(80) NULL,
+        overview_total_units VARCHAR(80) NULL,
+        configuration VARCHAR(120) NULL,
+        starting_price VARCHAR(120) NULL,
+        rera_number VARCHAR(120) NULL,
+        walkthrough_video_url VARCHAR(500) NULL,
+        exterior_images LONGTEXT NULL,
+        interior_images LONGTEXT NULL,
+        project_highlights LONGTEXT NULL,
+        project_details LONGTEXT NULL,
+        amenities LONGTEXT NULL,
+        availability_chart_pdf_url VARCHAR(500) NULL,
+        map_location_url VARCHAR(500) NULL,
+        location_advantages LONGTEXT NULL,
+        other_charges LONGTEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_villas_status (status),
+        INDEX idx_villas_updated_at (updated_at)
+      )`,
     ];
 
     // Execute each table creation sequentially

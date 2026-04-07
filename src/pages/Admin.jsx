@@ -4,6 +4,7 @@ import Cropper from 'react-easy-crop';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import JournalContent from '../components/JournalContent';
+import VillaProjectsAdmin from '../components/admin/VillaProjectsAdmin';
 import {
   adminLogin,
   adminLogout,
@@ -1297,6 +1298,14 @@ if (!token) {
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('villas')}
+              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'villas' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
+                }`}
+            >
+              Villa Projects
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('newsletter')}
               className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'newsletter' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
                 }`}
@@ -1621,6 +1630,8 @@ if (!token) {
               </div>
             </div>
           )}
+
+          {activeTab === 'villas' && !isLoadingData && <VillaProjectsAdmin token={token} />}
 
           {activeTab === 'galleries' && !isLoadingData && (
             <div className="mt-6 space-y-6">

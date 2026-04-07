@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaBuilding, FaLeaf, FaLocationDot, FaMagnifyingGlass, FaScaleBalanced } from 'react-icons/fa6';
@@ -6,9 +6,53 @@ import HeroSlider from '../components/HeroSlider';
 import CounterSection from '../components/CounterSection';
 import CTASection from '../components/CTASection';
 import { villaProjects } from '../data/projectsData';
+import { getPublicVillas } from '../services/api';
 
 const Home = () => {
-  const allProjects = [...villaProjects.ongoing, ...villaProjects.upcoming];
+  const [featuredProjects, setFeaturedProjects] = useState([
+    villaProjects.ongoing[0],
+    villaProjects.upcoming[0]
+  ].filter(Boolean));
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFeaturedProjects() {
+      try {
+        const response = await getPublicVillas();
+        const villas = Array.isArray(response.villas) ? response.villas : [];
+
+        const mappedProjects = villas.map((villa) => ({
+          id: villa.id,
+          slug: villa.slug,
+          name: villa.name || 'Untitled Villa',
+          location: villa.location || '-',
+          status: String(villa.status || 'ongoing'),
+          landArea: villa.acres || villa.overviewTotalLand || '-',
+          units: villa.totalVillas || villa.overviewTotalUnits || '-',
+          image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
+        }));
+
+        const ongoingVilla = mappedProjects.find((villa) => villa.status.toLowerCase() === 'ongoing');
+        const upcomingVilla = mappedProjects.find((villa) => villa.status.toLowerCase() === 'upcoming');
+        const nextFeatured = [ongoingVilla, upcomingVilla].filter(Boolean);
+
+        if (isMounted && nextFeatured.length > 0) {
+          setFeaturedProjects(nextFeatured);
+        }
+      } catch (_error) {
+        if (!isMounted) {
+          return;
+        }
+      }
+    }
+
+    loadFeaturedProjects();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const whyChooseUs = [
     { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing.' },
@@ -96,7 +140,7 @@ const Home = () => {
 
           {/* Grid: 1 column on mobile, 2 on tablet+ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-8 max-w-5xl mx-auto">
-            {allProjects.map((project, index) => (
+            {featuredProjects.map((project, index) => (
               <motion.div
                 key={project.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -130,14 +174,14 @@ const Home = () => {
                   </div>
 
                   <Link
-                    to={project.status === 'Ongoing' ? `/villa/${project.id}` : '#'}
+                    to={project.status.toLowerCase() === 'ongoing' ? `/villa/${project.slug || project.id}` : '#'}
                     className={`block w-full text-center py-2 md:py-3 rounded-sm font-medium text-xs md:text-base transition-colors ${
-                      project.status === 'Ongoing' 
+                      project.status.toLowerCase() === 'ongoing' 
                       ? 'bg-primary text-white hover:bg-accent' 
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    {project.status === 'Ongoing' ? 'View Details' : 'Coming Soon'}
+                    {project.status.toLowerCase() === 'ongoing' ? 'View Details' : 'Coming Soon'}
                   </Link>
                 </div>
               </motion.div>

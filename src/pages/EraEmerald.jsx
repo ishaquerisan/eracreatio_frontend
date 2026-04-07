@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   FaBolt,
   FaBook,
@@ -35,11 +35,35 @@ import {
   FaVideo,
   FaXmark,
 } from 'react-icons/fa6';
-import { villaProjects } from '../data/projectsData';
 import { CONTACT_DETAILS } from '../data/contactDetails';
 import ContactPopup from '../components/ContactPopup';
+import { getPublicVillaByIdentifier } from '../services/api';
 
-const project = villaProjects.ongoing[0];
+const emptyProject = {
+  id: '',
+  slug: '',
+  name: '',
+  location: '',
+  status: '',
+  description: '',
+  overviewTitle: '',
+  overviewDescription: '',
+  acres: '',
+  totalVillas: '',
+  configuration: '',
+  price: '',
+  brochurePdfUrl: '',
+  walkthroughVideoUrl: '',
+  availabilityChartPdfUrl: '',
+  mapLocationUrl: '',
+  rera: '',
+  otherCharges: '',
+  projectDetails: {},
+  images: { exterior: [], interior: [] },
+  highlights: [],
+  amenities: [],
+  locationAdvantages: [],
+};
 
 /* ── helpers ── */
 const SH = ({ label, title, light = false, left = false }) => (
@@ -50,11 +74,37 @@ const SH = ({ label, title, light = false, left = false }) => (
   </div>
 );
 
+function mergeVillaProject(baseProject, nextProject) {
+  const mergedProject = {
+    ...baseProject,
+    ...nextProject,
+  };
+
+  mergedProject.images = {
+    exterior: Array.isArray(nextProject?.images?.exterior) && nextProject.images.exterior.length > 0 ? nextProject.images.exterior : baseProject.images.exterior,
+    interior: Array.isArray(nextProject?.images?.interior) && nextProject.images.interior.length > 0 ? nextProject.images.interior : baseProject.images.interior,
+  };
+  mergedProject.highlights = Array.isArray(nextProject?.highlights) && nextProject.highlights.length > 0 ? nextProject.highlights : baseProject.highlights;
+  mergedProject.amenities = Array.isArray(nextProject?.amenities) && nextProject.amenities.length > 0 ? nextProject.amenities : baseProject.amenities;
+  mergedProject.locationAdvantages = Array.isArray(nextProject?.locationAdvantages) && nextProject.locationAdvantages.length > 0 ? nextProject.locationAdvantages : baseProject.locationAdvantages;
+  mergedProject.name = nextProject?.name || baseProject.name || '';
+  mergedProject.location = nextProject?.location || baseProject.location || '';
+  mergedProject.price = nextProject?.price || nextProject?.startingPrice || baseProject.price || '';
+  mergedProject.rera = nextProject?.rera || nextProject?.reraNumber || baseProject.rera || '';
+  mergedProject.otherCharges = nextProject?.otherCharges || baseProject.otherCharges || '';
+
+  return mergedProject;
+}
+
 /* ── Exterior Slider ── */
-const ExteriorSlider = () => {
+const ExteriorSlider = ({ project }) => {
   const [cur, setCur] = useState(0);
-  const imgs = project.images.exterior;
+  const imgs = project?.images?.exterior || [];
   useEffect(() => {
+    if (imgs.length <= 1) {
+      return undefined;
+    }
+
     const t = setInterval(() => setCur(p => (p + 1) % imgs.length), 4500);
     return () => clearInterval(t);
   }, [imgs.length]);
@@ -84,9 +134,9 @@ const ExteriorSlider = () => {
 };
 
 /* ── Interior Gallery + Lightbox ── */
-const InteriorGallery = () => {
+const InteriorGallery = ({ project }) => {
   const [lb, setLb] = useState(null);
-  const imgs = project.images.interior;
+  const imgs = project?.images?.interior || [];
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
@@ -105,14 +155,14 @@ const InteriorGallery = () => {
       <AnimatePresence>
         {lb !== null && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/92 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/96 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setLb(null)}>
             <button className="absolute top-4 right-4 text-white/70 hover:text-accent text-3xl z-10" onClick={() => setLb(null)}><FaXmark /></button>
             <p className="absolute top-5 left-1/2 -translate-x-1/2 text-white/50 text-sm">{lb + 1} / {imgs.length}</p>
-            <button className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
+            <button className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 roNunded-full flex items-center justify-center text-xl transition-colors z-10"
               onClick={e => { e.stopPropagation(); setLb(p => (p - 1 + imgs.length) % imgs.length); }}><FaChevronLeft /></button>
             <motion.img key={lb} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-              src={imgs[lb]} alt="Interior" className="max-w-full max-h-[80vh] rounded-xl object-contain shadow-2xl"
+              src={imgs[lb]} alt="Interior" className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
               onClick={e => e.stopPropagation()} />
             <button className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-accent text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-xl transition-colors z-10"
               onClick={e => { e.stopPropagation(); setLb(p => (p + 1) % imgs.length); }}><FaChevronRight /></button>
@@ -131,55 +181,23 @@ const InteriorGallery = () => {
   );
 };
 
-/* ── Availability Table ── */
-const availabilityData = [
-  { villa: 'V-01', type: '4 BHK', area: '2,100 Sq.Ft', status: 'Available' },
-  { villa: 'V-02', type: '4 BHK', area: '2,150 Sq.Ft', status: 'Booked' },
-  { villa: 'V-03', type: '4 BHK', area: '2,100 Sq.Ft', status: 'Available' },
-  { villa: 'V-04', type: '4 BHK', area: '2,200 Sq.Ft', status: 'Available' },
-  { villa: 'V-05', type: '4 BHK', area: '2,150 Sq.Ft', status: 'Sold' },
-  { villa: 'V-06', type: '4 BHK', area: '2,100 Sq.Ft', status: 'Available' },
-  { villa: 'V-07', type: '4 BHK', area: '2,250 Sq.Ft', status: 'Booked' },
-  { villa: 'V-08', type: '4 BHK', area: '2,100 Sq.Ft', status: 'Available' },
-];
-
-const statusStyle = {
-  Available: 'bg-green-100 text-green-700 border border-green-200',
-  Booked:    'bg-amber-100 text-amber-700 border border-amber-200',
-  Sold:      'bg-red-100 text-red-600 border border-red-200',
-};
-
-const AvailabilityTable = () => (
-  <div className="overflow-x-auto rounded-2xl shadow-lg">
-    <table className="w-full text-sm sm:text-base">
-      <thead>
-        <tr className="bg-primary text-white">
-          {['Villa No.', 'Type', 'Built-up Area', 'Status'].map(h => (
-            <th key={h} className="px-4 sm:px-6 py-4 text-left font-semibold tracking-wide text-xs sm:text-sm uppercase">{h}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {availabilityData.map((row, i) => (
-          <tr key={i} className={`border-b border-gray-100 ${i % 2 === 0 ? 'bg-white' : 'bg-bgLight'} hover:bg-accent/5 transition-colors`}>
-            <td className="px-4 sm:px-6 py-3.5 font-semibold text-primary">{row.villa}</td>
-            <td className="px-4 sm:px-6 py-3.5 text-textGrey">{row.type}</td>
-            <td className="px-4 sm:px-6 py-3.5 text-textGrey">{row.area}</td>
-            <td className="px-4 sm:px-6 py-3.5">
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusStyle[row.status]}`}>{row.status}</span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    {/* Legend */}
-    <div className="bg-white px-4 sm:px-6 py-4 flex flex-wrap gap-4 border-t border-gray-100">
-      {Object.entries(statusStyle).map(([label, cls]) => (
-        <div key={label} className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>
+/* ── Availability Preview ── */
+const AvailabilityPreview = ({ pdfUrl }) => (
+  <div className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200 bg-white">
+    {pdfUrl ? (
+      <iframe
+        src={pdfUrl}
+        title="Availability chart preview"
+        className="h-[80vh] w-full bg-white"
+      />
+    ) : (
+      <div className="flex min-h-[340px] items-center justify-center bg-bgLight px-6 py-10 text-center text-textGrey">
+        <div>
+          <p className="text-base font-semibold text-primary">Availability chart not uploaded yet</p>
+          <p className="mt-2 text-sm">Leave this section blank until a PDF is added from the admin panel.</p>
         </div>
-      ))}
-    </div>
+      </div>
+    )}
   </div>
 );
 
@@ -221,8 +239,52 @@ const qrItems = [
 
 /* ── Main Page ── */
 const EraEmerald = () => {
-  const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent('Hi! I am interested in Era Emerald villa project.')}`;
+  const { villaSlug } = useParams();
+  const [project, setProject] = useState(emptyProject);
+  const [loadError, setLoadError] = useState('');
   const [showPopup, setShowPopup] = useState(false);
+
+  const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(`Hi! I am interested in ${project.name || ''}.`)}`;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadVilla() {
+      const identifier = villaSlug;
+
+      if (!identifier) {
+        if (isMounted) {
+          setProject(emptyProject);
+          setLoadError('');
+        }
+        return;
+      }
+
+      try {
+        const data = await getPublicVillaByIdentifier(identifier);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setProject(mergeVillaProject(emptyProject, data.villa || data.project || data));
+        setLoadError('');
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setProject(emptyProject);
+        setLoadError(error.message || '');
+      }
+    }
+
+    loadVilla();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [villaSlug]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowPopup(true), 1200);
@@ -241,15 +303,24 @@ const EraEmerald = () => {
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-32">
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }} className="max-w-3xl">
-            <span className="inline-block bg-accent text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-4 tracking-widest uppercase">Ongoing Project</span>
-            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-3 leading-tight">Era Emerald</h1>
-            <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2"><FaLocationDot /> Kudukkimotta, Kannur</p>
-            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">
-              Experience refined living in a thoughtfully designed villa community that blends modern comfort, natural surroundings, and engineering excellence.
-            </p>
+            {project.status ? (
+              <span className="inline-block bg-accent text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-4 tracking-widest uppercase">
+                {project.status === 'completed' ? 'Completed Project' : project.status === 'draft' ? 'Draft Project' : 'Ongoing Project'}
+              </span>
+            ) : null}
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-3 leading-tight">{project.name}</h1>
+            <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2"><FaLocationDot /> {project.location}</p>
+            {loadError ? <p className="mb-3 text-sm text-amber-300">{loadError}</p> : null}
+            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">{project.description}</p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link to="/contact" className="inline-block bg-accent text-white px-7 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-center text-sm sm:text-base">Book a Site Visit</Link>
-              <button className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base"><FaDownload /> Download Brochure</button>
+              {project.brochurePdfUrl ? (
+                <a href={project.brochurePdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base">
+                  <FaDownload /> Download Brochure
+                </a>
+              ) : (
+                <button className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base"><FaDownload /> Download Brochure</button>
+              )}
             </div>
           </motion.div>
         </div>
@@ -265,15 +336,15 @@ const EraEmerald = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
-              <SH label="Project Overview" title="A Refined Living Experience in Kudukkimotta" left />
+              <SH label={project.overviewTitle ? 'Project Overview' : ''} title={project.overviewTitle || ''} left />
               <div className="space-y-4 text-textGrey text-sm sm:text-base leading-relaxed">
-                <p>Nestled in the serene surroundings of Kudukkimotta, Era Emerald is a thoughtfully crafted villa community spread across 2.13 acres, featuring 22 exclusive 4BHK residences.</p>
-                <p>Designed with a perfect balance of architectural elegance and engineering precision, each home reflects superior planning, quality construction, and modern lifestyle aspirations.</p>
-                <p>Era Emerald is more than just a collection of homes — it is a refined living experience where comfort, privacy, and long-term value come together for modern families.</p>
+                <p>{project.overviewDescription || project.description || ''}</p>
+                <p>{project.description || ''}</p>
+                <p>{project.name ? `${project.name} is more than just a collection of homes — it is a refined living experience where comfort, privacy, and long-term value come together for modern families.` : ''}</p>
               </div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="grid grid-cols-2 gap-3 sm:gap-4">
-              {[['2.13 Acres','Total Land'],['22 Villas','Total Units'],['4 BHK','Configuration'],['₹3,950/Sq.Ft','Starting Price']].map(([v, l], i) => (
+              {[[project.acres || project.overviewTotalLand || '', 'Total Land'], [project.totalVillas || project.overviewTotalUnits || '', 'Total Units'], [project.configuration || '', 'Configuration'], [project.price || '', 'Starting Price']].map(([v, l], i) => (
                 <div key={i} className="bg-bgLight rounded-xl sm:rounded-2xl p-5 sm:p-6 text-center border border-gray-100 hover:border-accent/30 transition-colors">
                   <div className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-accent mb-1">{v}</div>
                   <div className="text-textGrey text-xs sm:text-sm">{l}</div>
@@ -289,31 +360,45 @@ const EraEmerald = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
           <SH label="Gallery" title="Exterior Views" />
         </div>
-        <ExteriorSlider />
+        <ExteriorSlider project={project} />
       </section>
 
       {/* 4 ── INTERIOR GALLERY */}
       <section className="py-16 sm:py-20 bg-bgLight">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <SH label="Inside Your Home" title="Interior Spaces" />
-          <InteriorGallery />
+          <InteriorGallery project={project} />
         </div>
       </section>
 
       {/* 5 ── VIDEO */}
       <section className="py-16 sm:py-20 bg-primary">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Walkthrough" title="Experience Era Emerald" light />
+          <SH label="Walkthrough" title={`Experience ${project.name}`} light />
           <div className="max-w-4xl mx-auto">
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-2xl flex items-center justify-center">
-              <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: `url(${project.images.exterior[1]})` }} />
-              <div className="relative z-10 text-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 cursor-pointer hover:scale-110 transition-transform shadow-xl">
-                  <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+            <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-2xl">
+              {project.walkthroughVideoUrl ? (
+                <video
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster={project.images.exterior[1] || project.images.exterior[0] || ''}
+                  className="h-full w-full object-cover"
+                >
+                  <source src={project.walkthroughVideoUrl} />
+                </video>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: project.images.exterior[1] || project.images.exterior[0] ? `url(${project.images.exterior[1] || project.images.exterior[0]})` : 'none' }} />
+                  <div className="relative z-10 text-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl">
+                      <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    </div>
+                    <p className="text-white font-medium text-sm sm:text-base">Watch Drone Walkthrough</p>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Video coming soon</p>
+                  </div>
                 </div>
-                <p className="text-white font-medium text-sm sm:text-base">Watch Drone Walkthrough</p>
-                <p className="text-gray-400 text-xs sm:text-sm mt-1">Video coming soon</p>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -322,7 +407,7 @@ const EraEmerald = () => {
       {/* 6 ── PROJECT HIGHLIGHTS */}
       <section className="py-16 sm:py-20 bg-white">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Why Era Emerald" title="Project Highlights" />
+          <SH label="Why This Villa" title="Project Highlights" />
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto">
             {project.highlights.map((h, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
@@ -341,10 +426,10 @@ const EraEmerald = () => {
           <SH label="Specifications" title="Project Details" />
           <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
             {[
-              ['Project Name','Era Emerald'],['Location','Kudukkimotta, Kannur'],
-              ['Total Land Area','2.13 Acres'],['Total Units','22 Villas'],
-              ['Configuration','4 BHK Premium Villas'],['Price','₹3,950 / Sq.Ft'],
-              ['Status','Ongoing'],['RERA Number','To be added'],
+              ['Project Name', project.projectDetails?.projectName || project.name || ''], ['Location', project.projectDetails?.location || project.location || ''],
+              ['Total Land Area', project.projectDetails?.totalLandArea || project.acres || project.overviewTotalLand || ''], ['Total Units', project.projectDetails?.totalUnits || project.totalVillas || project.overviewTotalUnits || ''],
+              ['Configuration', project.projectDetails?.configuration || project.configuration || ''], ['Price', project.projectDetails?.price || project.price || ''],
+              ['Status', project.projectDetails?.status || project.status || ''], ['RERA Number', project.projectDetails?.reraNumber || project.rera || ''],
             ].map(([k, v], i) => (
               <div key={i} className={`flex flex-col sm:flex-row sm:items-center px-5 sm:px-8 py-4 sm:py-5 ${i % 2 === 0 ? 'bg-white' : 'bg-bgLight'}`}>
                 <span className="text-textGrey text-xs font-medium w-full sm:w-52 mb-1 sm:mb-0 uppercase tracking-wide">{k}</span>
@@ -402,11 +487,17 @@ const EraEmerald = () => {
       <section className="py-16 sm:py-20 bg-bgLight">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <SH label="Unit Status" title="Availability Chart" />
-          <AvailabilityTable />
+          <AvailabilityPreview pdfUrl={project.availabilityChartPdfUrl} />
           <div className="text-center mt-8">
-            <button className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
-              <FaDownload /> Download Full Availability Chart
-            </button>
+            {project.availabilityChartPdfUrl ? (
+              <a href={project.availabilityChartPdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
+                <FaDownload /> Download Full Availability Chart
+              </a>
+            ) : (
+              <button className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
+                <FaDownload /> Download Full Availability Chart
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -422,11 +513,13 @@ const EraEmerald = () => {
                 <div className="text-center text-textGrey p-6">
                   <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
                   <p className="font-semibold text-primary text-base mb-1">Google Map</p>
-                  <p className="text-sm text-textGrey">Kudukkimotta, Kannur, Kerala</p>
-                  <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer"
-                    className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
-                    Open in Maps
-                  </a>
+                  <p className="text-sm text-textGrey">{project.location || ''}</p>
+                  {project.mapLocationUrl ? (
+                    <a href={project.mapLocationUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
+                      Open in Maps
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -445,7 +538,7 @@ const EraEmerald = () => {
               {/* RERA */}
               <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
                 <p className="text-xs text-textGrey uppercase tracking-wide mb-1">RERA Registration</p>
-                <p className="text-primary font-semibold text-sm sm:text-base">To be added</p>
+                <p className="text-primary font-semibold text-sm sm:text-base">{project.rera || ''}</p>
               </div>
               {/* Location Advantages */}
               <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
@@ -466,13 +559,13 @@ const EraEmerald = () => {
 
       {/* 12 ── FINAL CTA */}
       <section className="relative py-20 sm:py-28 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${project.images.exterior[2]})` }}>
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: project.images.exterior[2] || project.images.exterior[1] || project.images.exterior[0] ? `url(${project.images.exterior[2] || project.images.exterior[1] || project.images.exterior[0]})` : 'none' }}>
           <div className="absolute inset-0 bg-primary/90" />
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
             <span className="text-accent text-xs font-semibold tracking-widest uppercase mb-4 block">Limited Units Available</span>
-            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6">Own Your Dream Villa at Era Emerald</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6">Own Your Dream Villa at {project.name}</h2>
             <p className="text-gray-300 text-base sm:text-lg mb-8 sm:mb-10 max-w-2xl mx-auto">
               Limited units available in this premium gated community. Secure your home today.
             </p>

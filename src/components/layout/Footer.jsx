@@ -44,7 +44,7 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="text-center sm:text-left">
             <Link to="/">
-              <img src="/logo.svg" alt="Era Creatio Developers LLP" className="h-16 w-auto mb-3 sm:mb-4 mx-auto sm:mx-0 brightness-0 invert" />
+              <img src="/logo.svg" alt="Era Creatio Developers LLP" className="h-16 w-auto mb-3 sm:mb-4 mx-auto sm:mx-0" />
             </Link>
             <p className="text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">
               Redefining luxury living in Kerala since 2018. Building dreams, creating legacies.

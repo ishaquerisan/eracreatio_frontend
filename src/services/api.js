@@ -68,6 +68,14 @@ export function getPublicCommercialProjectByIdentifier(idOrSlug) {
   return request(`/commercial-projects/${idOrSlug}`);
 }
 
+export function getPublicVillaByIdentifier(idOrSlug) {
+  return request(`/villas/${idOrSlug}`);
+}
+
+export function getPublicVillas() {
+  return request('/villas');
+}
+
 export function getPublishedBlogByIdentifier(idOrSlug) {
   return request(`/blogs/${idOrSlug}`);
 }
@@ -117,6 +125,10 @@ export function getAdminCommercialProjects(token) {
   return request('/admin/commercial-projects', { token });
 }
 
+export function getAdminVillas(token) {
+  return request('/admin/villas', { token });
+}
+
 export function createAdminGalleryEntry(token, payload) {
   return request('/admin/gallery-entries', {
     method: 'POST',
@@ -158,6 +170,29 @@ export function updateAdminCommercialProject(token, projectId, payload) {
 
 export function deleteAdminCommercialProject(token, projectId) {
   return request(`/admin/commercial-projects/${projectId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function createAdminVilla(token, payload) {
+  return request('/admin/villas', {
+    method: 'POST',
+    token,
+    payload,
+  });
+}
+
+export function updateAdminVilla(token, villaId, payload) {
+  return request(`/admin/villas/${villaId}`, {
+    method: 'PUT',
+    token,
+    payload,
+  });
+}
+
+export function deleteAdminVilla(token, villaId) {
+  return request(`/admin/villas/${villaId}`, {
     method: 'DELETE',
     token,
   });

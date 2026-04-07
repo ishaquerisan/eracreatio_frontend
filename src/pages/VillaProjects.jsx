@@ -1,13 +1,95 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaLocationDot } from 'react-icons/fa6';
 import { villaProjects } from '../data/projectsData';
+import { getPublicVillas } from '../services/api';
+
+const seededProjects = [...villaProjects.ongoing, ...villaProjects.upcoming];
+
+function normalizeVillaCard(villa) {
+  return {
+    id: villa.id,
+    slug: villa.slug,
+    name: villa.name || 'Untitled Villa',
+    location: villa.location || '-',
+    status: String(villa.status || 'ongoing').toLowerCase(),
+    landArea: villa.acres || villa.overviewTotalLand || '-',
+    units: villa.totalVillas || villa.overviewTotalUnits || '-',
+    image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || seededProjects[0]?.image || '',
+  };
+}
+
+function splitVillasByTab(villas) {
+  const liveVillas = Array.isArray(villas) ? villas : [];
+  const ongoing = liveVillas.filter((villa) => villa.status === 'ongoing');
+  const upcoming = liveVillas.filter((villa) => villa.status === 'upcoming');
+  const completed = liveVillas.filter((villa) => villa.status === 'completed');
+
+  return {
+    ongoing: ongoing.length > 0 ? ongoing : seededProjects.filter((project) => project.status === 'Ongoing'),
+    upcoming: upcoming.length > 0 ? upcoming : seededProjects.filter((project) => project.status === 'Upcoming'),
+    completed: completed.length > 0 ? completed : [],
+  };
+}
+
+function getStatusLabel(status) {
+  if (status === 'ongoing') {
+    return 'Ongoing';
+  }
+
+  if (status === 'upcoming') {
+    return 'Upcoming';
+  }
+
+  if (status === 'completed') {
+    return 'Completed';
+  }
+
+  return 'Live';
+}
 
 const VillaProjects = () => {
   const [activeTab, setActiveTab] = useState('ongoing');
+  const [projectsByTab, setProjectsByTab] = useState({
+    ongoing: seededProjects.filter((project) => project.status === 'Ongoing'),
+    upcoming: seededProjects.filter((project) => project.status === 'Upcoming'),
+    completed: [],
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const projects = activeTab === 'ongoing' ? villaProjects.ongoing : villaProjects.upcoming;
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadVillas() {
+      setIsLoading(true);
+
+      try {
+        const response = await getPublicVillas();
+        const mappedProjects = (response.villas || []).map(normalizeVillaCard);
+
+        if (isMounted) {
+          setProjectsByTab(splitVillasByTab(mappedProjects));
+        }
+      } catch (_error) {
+        if (isMounted) {
+          setProjectsByTab(splitVillasByTab([]));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadVillas();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const projects = projectsByTab[activeTab] || [];
 
   return (
     <div className="pt-20 sm:pt-24">
@@ -27,8 +109,8 @@ const VillaProjects = () => {
       {/* Tabs + Cards */}
       <section className="py-12 sm:py-16 bg-bgLight">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center space-x-3 sm:space-x-4 mb-10 sm:mb-12">
-            {['ongoing', 'upcoming'].map((tab) => (
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-10 sm:mb-12">
+            {['ongoing', 'upcoming', 'completed'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -36,7 +118,7 @@ const VillaProjects = () => {
                   activeTab === tab ? 'bg-accent text-white' : 'bg-white text-primary hover:bg-gray-100'
                 }`}
               >
-                {tab === 'ongoing' ? 'Ongoing' : 'Upcoming'}
+                {tab === 'ongoing' ? 'Ongoing' : tab === 'upcoming' ? 'Upcoming' : 'Completed'}
               </button>
             ))}
           </div>
@@ -48,9 +130,9 @@ const VillaProjects = () => {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="group bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
+                className="group bg-white rounded-[28px] overflow-hidden shadow-[0_14px_35px_rgba(15,23,42,0.08)] hover:shadow-[0_20px_45px_rgba(15,23,42,0.12)] transition-all duration-300"
               >
-                <div className="relative h-52 sm:h-64 overflow-hidden">
+                <div className="relative h-56 sm:h-64 overflow-hidden">
                   <img
                     src={project.image}
                     alt={project.name}
@@ -58,41 +140,47 @@ const VillaProjects = () => {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute top-3 right-3">
-                    <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                      project.status === 'Ongoing' ? 'bg-accent text-white' : 'bg-blue-500 text-white'
+                    <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-xs font-semibold shadow-sm ${
+                      project.status === 'upcoming' ? 'bg-white text-primary' : 'bg-[#CFA95F] text-white'
                     }`}>
-                      {project.status}
+                      {getStatusLabel(project.status)}
                     </span>
                   </div>
                 </div>
-                <div className="p-5 sm:p-6">
-                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-primary mb-1">{project.name}</h3>
-                  <p className="text-textGrey text-sm sm:text-base mb-3 flex items-center">
-                    <FaLocationDot className="mr-2 text-accent" />{project.location}
-                  </p>
-                  <div className="flex justify-between text-xs sm:text-sm text-textGrey mb-4">
-                    <span><strong className="text-primary">{project.landArea}</strong> Land</span>
-                    <span><strong className="text-primary">{project.units}</strong></span>
+                <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-6 sm:pb-7 space-y-4">
+                  <div>
+                    <h3 className="font-serif text-[26px] sm:text-[30px] leading-tight font-bold text-primary mb-1.5">{project.name}</h3>
+                    <p className="text-[#6A6A6A] text-sm sm:text-[15px] flex items-center">
+                      <FaLocationDot className="mr-2 text-accent shrink-0" />
+                      <span>{project.location}</span>
+                    </p>
                   </div>
-                  {project.status === 'Ongoing' ? (
-                    <Link
-                      to={`/villa/${project.id}`}
-                      className="block w-full text-center bg-primary text-white py-2.5 sm:py-3 rounded-luxury hover:bg-accent transition-colors font-medium text-sm sm:text-base"
-                    >
-                      View Details
-                    </Link>
-                  ) : (
-                    <button
-                      disabled
-                      className="block w-full text-center bg-gray-200 text-gray-500 py-2.5 sm:py-3 rounded-luxury font-medium text-sm sm:text-base cursor-not-allowed"
-                    >
-                      Coming Soon
-                    </button>
-                  )}
+
+                  <div className="grid grid-cols-2 gap-4 text-sm pt-1">
+                    <div>
+                      <p className="text-[#111111] text-[15px] font-semibold leading-none">{project.landArea}</p>
+                      <p className="mt-1 text-[#6A6A6A] text-sm">Land</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[#111111] text-[15px] font-semibold leading-none">{project.units}</p>
+                      <p className="mt-1 text-[#6A6A6A] text-sm">Villas</p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/villa/${project.slug || project.id}`}
+                    className="block w-full text-center bg-[#121212] text-white py-3.5 rounded-full hover:bg-[#1f1f1f] transition-colors font-semibold text-[15px]"
+                  >
+                    View Details
+                  </Link>
                 </div>
               </motion.div>
             ))}
           </div>
+
+          {!isLoading && projects.length === 0 ? (
+            <p className="mt-6 text-center text-textGrey text-sm">No villa projects are available yet.</p>
+          ) : null}
         </div>
       </section>
     </div>

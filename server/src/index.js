@@ -23,14 +23,17 @@ const SESSION_DURATION_MS = 1000 * 60 * 60 * 24;
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 const GALLERY_UPLOADS_DIR = path.join(UPLOADS_DIR, 'galleries');
 const COMMERCIAL_PROJECT_UPLOADS_DIR = path.join(UPLOADS_DIR, 'commercial-projects');
+const VILLA_UPLOADS_DIR = path.join(UPLOADS_DIR, 'villas');
 const BLOG_UPLOADS_DIR = path.join(UPLOADS_DIR, 'blogs');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
+const VILLA_STATUSES = new Set(['draft', 'ongoing', 'completed']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
 fs.mkdirSync(GALLERY_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(COMMERCIAL_PROJECT_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(VILLA_UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(BLOG_UPLOADS_DIR, { recursive: true });
 
 const galleryUpload = multer({
@@ -72,6 +75,46 @@ const commercialProjectUpload = multer({
     }
 
     return cb(null, true);
+  },
+});
+
+const villaUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      cb(null, VILLA_UPLOADS_DIR);
+    },
+    filename: (_req, file, cb) => {
+      const mimeType = String(file.mimetype || '').toLowerCase();
+      let extension = '.bin';
+
+      if (mimeType.startsWith('image/')) {
+        extension = '.jpg';
+      } else if (mimeType === 'application/pdf') {
+        extension = '.pdf';
+      } else if (mimeType.startsWith('video/')) {
+        if (mimeType.includes('webm')) {
+          extension = '.webm';
+        } else if (mimeType.includes('quicktime')) {
+          extension = '.mov';
+        } else {
+          extension = '.mp4';
+        }
+      }
+
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
+    },
+  }),
+  limits: {
+    fileSize: 120 * 1024 * 1024,
+  },
+  fileFilter: (_req, file, cb) => {
+    const mimeType = String(file.mimetype || '').toLowerCase();
+
+    if (mimeType.startsWith('image/') || mimeType === 'application/pdf' || mimeType.startsWith('video/')) {
+      return cb(null, true);
+    }
+
+    return cb(new Error('Only image, PDF, and video files are allowed.'));
   },
 });
 
@@ -157,6 +200,205 @@ async function createUniqueCommercialProjectSlug(pool, projectName, preferredSlu
 
     suffix += 1;
   }
+}
+
+async function createUniqueVillaSlug(pool, villaName, preferredSlug = '', excludeVillaId = null) {
+  const baseSlug = slugify(preferredSlug || villaName) || `villa-${Date.now()}`;
+  let suffix = 0;
+
+  while (true) {
+    const candidate = suffix === 0 ? baseSlug : `${baseSlug}-${suffix}`;
+    const params = [candidate];
+    let query = 'SELECT id FROM villas WHERE slug = ?';
+
+    if (excludeVillaId) {
+      query += ' AND id <> ?';
+      params.push(excludeVillaId);
+    }
+
+    query += ' LIMIT 1';
+
+    const [rows] = await pool.execute(query, params);
+
+    if (rows.length === 0) {
+      return candidate;
+    }
+
+    suffix += 1;
+  }
+}
+
+function parseJsonValue(value, fallback) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (Array.isArray(value) || typeof value === 'object') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(String(value));
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function normalizeTextOrFallback(value, fallback = '') {
+  const normalized = String(value || '').trim();
+  return normalized ? normalized : fallback;
+}
+
+function normalizeVillaStatus(value, fallback = 'draft') {
+  const normalized = String(value || '').trim().toLowerCase();
+  return VILLA_STATUSES.has(normalized) ? normalized : fallback;
+}
+
+function normalizeAmenityItems(value) {
+  const rawItems = parseJsonValue(value, []);
+
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  return rawItems
+    .map((item) => {
+      if (typeof item === 'string') {
+        const title = item.trim();
+        return title ? { title, desc: '', icon: '' } : null;
+      }
+
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const title = String(item.title || '').trim();
+      const desc = String(item.desc || '').trim();
+      const icon = String(item.icon || '').trim();
+
+      if (!title && !desc) {
+        return null;
+      }
+
+      return { title, desc, icon };
+    })
+    .filter(Boolean);
+}
+
+function normalizeStringArray(value) {
+  const rawItems = parseJsonValue(value, []);
+
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  return rawItems.map((item) => String(item || '').trim()).filter(Boolean);
+}
+
+function normalizeVillaPayload(body) {
+  const payload = body || {};
+
+  return {
+    name: String(payload.name || '').trim(),
+    location: String(payload.location || '').trim(),
+    acres: String(payload.acres || '').trim(),
+    totalVillas: String(payload.totalVillas || '').trim(),
+    status: normalizeVillaStatus(payload.status),
+    description: String(payload.description || '').trim(),
+    overviewTitle: String(payload.overviewTitle || '').trim(),
+    overviewDescription: String(payload.overviewDescription || '').trim(),
+    overviewTotalLand: String(payload.overviewTotalLand || '').trim(),
+    overviewTotalUnits: String(payload.overviewTotalUnits || '').trim(),
+    configuration: String(payload.configuration || '').trim(),
+    startingPrice: String(payload.startingPrice || '').trim(),
+    slug: String(payload.slug || '').trim(),
+    reraNumber: String(payload.reraNumber || '').trim(),
+    mapLocationUrl: String(payload.mapLocationUrl || '').trim(),
+    otherCharges: String(payload.otherCharges || '').trim(),
+    projectDetails: parseJsonValue(payload.projectDetails, {}),
+    projectHighlights: normalizeStringArray(payload.projectHighlights),
+    locationAdvantages: normalizeStringArray(payload.locationAdvantages),
+    amenities: normalizeAmenityItems(payload.amenities),
+  };
+}
+
+function mapVillaRow(row, req) {
+  const projectDetails = parseJsonValue(row.projectDetails, {}) || {};
+  const exteriorImages = normalizeStringArray(row.exteriorImages).map((value) => normalizeStoredImageUrl(req, value));
+  const interiorImages = normalizeStringArray(row.interiorImages).map((value) => normalizeStoredImageUrl(req, value));
+  const highlights = normalizeStringArray(row.projectHighlights);
+  const amenities = normalizeAmenityItems(row.amenities);
+  const locationAdvantages = normalizeStringArray(row.locationAdvantages);
+
+  const bannerImage = normalizeStoredImageUrl(req, row.bannerImageUrl);
+  const brochurePdfUrl = normalizeStoredImageUrl(req, row.brochurePdfUrl);
+  const walkthroughVideoUrl = normalizeStoredImageUrl(req, row.walkthroughVideoUrl);
+  const availabilityChartPdfUrl = normalizeStoredImageUrl(req, row.availabilityChartPdfUrl);
+  const mapLocationUrl = normalizeTextOrFallback(row.mapLocationUrl, projectDetails.mapLocationUrl || '');
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    location: row.location,
+    acres: row.acres || '',
+    totalVillas: row.totalVillas || '',
+    status: normalizeVillaStatus(row.status),
+    bannerImage,
+    image: bannerImage,
+    brochurePdfUrl,
+    description: row.description || '',
+    overviewTitle: row.overviewTitle || '',
+    overviewDescription: row.overviewDescription || '',
+    overviewTotalLand: row.overviewTotalLand || '',
+    overviewTotalUnits: row.overviewTotalUnits || '',
+    configuration: row.configuration || '',
+    startingPrice: row.startingPrice || '',
+    price: row.startingPrice || projectDetails.price || '',
+    walkthroughVideoUrl,
+    availabilityChartPdfUrl,
+    mapLocationUrl,
+    otherCharges: row.otherCharges || '',
+    reraNumber: row.reraNumber || projectDetails.reraNumber || '',
+    projectDetails: {
+      ...projectDetails,
+      projectName: projectDetails.projectName || row.name || '',
+      location: projectDetails.location || row.location || '',
+      totalLandArea: projectDetails.totalLandArea || row.acres || '',
+      totalUnits: projectDetails.totalUnits || row.totalVillas || '',
+      configuration: projectDetails.configuration || row.configuration || '',
+      price: projectDetails.price || row.startingPrice || '',
+      status: normalizeVillaStatus(projectDetails.status || row.status),
+      reraNumber: projectDetails.reraNumber || row.reraNumber || '',
+    },
+    images: {
+      exterior: exteriorImages.length > 0 ? exteriorImages : bannerImage ? [bannerImage] : [],
+      interior: interiorImages,
+    },
+    highlights,
+    amenities,
+    locationAdvantages,
+    otherCharges: row.otherCharges || '',
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function mapVillaRowForAdmin(row, req) {
+  return mapVillaRow(row, req);
+}
+
+function getVillaFileUrls(uploadedFiles = {}) {
+  const toUrl = (file) => (file ? `/uploads/villas/${file.filename}` : '');
+
+  return {
+    bannerImageUrl: toUrl((uploadedFiles.bannerImage || [])[0]),
+    brochurePdfUrl: toUrl((uploadedFiles.brochurePdf || [])[0]),
+    walkthroughVideoUrl: toUrl((uploadedFiles.walkthroughVideo || [])[0]),
+    availabilityChartPdfUrl: toUrl((uploadedFiles.availabilityChartPdf || [])[0]),
+    exteriorImages: (uploadedFiles.exteriorImages || []).map((file) => `/uploads/villas/${file.filename}`),
+    interiorImages: (uploadedFiles.interiorImages || []).map((file) => `/uploads/villas/${file.filename}`),
+  };
 }
 
 function normalizeBlogPayload(body, uploadedFile = null) {
@@ -560,6 +802,582 @@ app.get('/api/commercial-projects/:idOrSlug', async (req, res) => {
     return res.json({ project: mapCommercialProjectRow(rows[0], req) });
   } catch (_error) {
     return res.status(500).json({ message: 'Could not load this commercial project right now.' });
+  }
+});
+
+app.get('/api/villas', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         slug,
+         name,
+         location,
+         acres,
+         total_villas AS totalVillas,
+         banner_image_url AS bannerImageUrl,
+         status,
+         overview_title AS overviewTitle,
+         overview_description AS overviewDescription,
+         overview_total_land AS overviewTotalLand,
+         overview_total_units AS overviewTotalUnits,
+         configuration,
+         starting_price AS startingPrice,
+         description,
+         walkthrough_video_url AS walkthroughVideoUrl,
+         brochure_pdf_url AS brochurePdfUrl,
+         availability_chart_pdf_url AS availabilityChartPdfUrl,
+         map_location_url AS mapLocationUrl,
+         project_highlights AS projectHighlights,
+         project_details AS projectDetails,
+         amenities,
+         exterior_images AS exteriorImages,
+         interior_images AS interiorImages,
+         location_advantages AS locationAdvantages,
+         other_charges AS otherCharges,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM villas
+       ORDER BY updated_at DESC`
+    );
+
+    return res.json({ villas: rows.map((row) => mapVillaRow(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load villas right now.' });
+  }
+});
+
+app.get('/api/villas/:idOrSlug', async (req, res) => {
+  const { idOrSlug } = req.params;
+  const isNumericIdentifier = /^\d+$/.test(String(idOrSlug));
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         slug,
+         name,
+         location,
+         acres,
+         total_villas AS totalVillas,
+         banner_image_url AS bannerImageUrl,
+         status,
+         brochure_pdf_url AS brochurePdfUrl,
+         description,
+         overview_title AS overviewTitle,
+         overview_description AS overviewDescription,
+         overview_total_land AS overviewTotalLand,
+         overview_total_units AS overviewTotalUnits,
+         configuration,
+         starting_price AS startingPrice,
+         walkthrough_video_url AS walkthroughVideoUrl,
+         availability_chart_pdf_url AS availabilityChartPdfUrl,
+         map_location_url AS mapLocationUrl,
+         project_highlights AS projectHighlights,
+         project_details AS projectDetails,
+         amenities,
+         exterior_images AS exteriorImages,
+         interior_images AS interiorImages,
+         location_advantages AS locationAdvantages,
+         other_charges AS otherCharges,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM villas
+       WHERE ${isNumericIdentifier ? 'id = ?' : 'slug = ?'}
+       LIMIT 1`,
+      [isNumericIdentifier ? Number(idOrSlug) : String(idOrSlug)]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Villa not found.' });
+    }
+
+    return res.json({ villa: mapVillaRow(rows[0], req) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load this villa right now.' });
+  }
+});
+
+app.get('/api/admin/villas', requireAdmin, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         slug,
+         name,
+         location,
+         acres,
+         total_villas AS totalVillas,
+         banner_image_url AS bannerImageUrl,
+         status,
+         brochure_pdf_url AS brochurePdfUrl,
+         description,
+         overview_title AS overviewTitle,
+         overview_description AS overviewDescription,
+         overview_total_land AS overviewTotalLand,
+         overview_total_units AS overviewTotalUnits,
+         configuration,
+         starting_price AS startingPrice,
+         walkthrough_video_url AS walkthroughVideoUrl,
+         exterior_images AS exteriorImages,
+         interior_images AS interiorImages,
+         project_highlights AS projectHighlights,
+         project_details AS projectDetails,
+         amenities,
+         availability_chart_pdf_url AS availabilityChartPdfUrl,
+         map_location_url AS mapLocationUrl,
+         location_advantages AS locationAdvantages,
+         other_charges AS otherCharges,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM villas
+       ORDER BY updated_at DESC`
+    );
+
+    return res.json({ villas: rows.map((row) => mapVillaRowForAdmin(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load villas.' });
+  }
+});
+
+app.post(
+  '/api/admin/villas',
+  requireAdmin,
+  villaUpload.fields([
+    { name: 'bannerImage', maxCount: 1 },
+    { name: 'brochurePdf', maxCount: 1 },
+    { name: 'walkthroughVideo', maxCount: 1 },
+    { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'exteriorImages', maxCount: 20 },
+    { name: 'interiorImages', maxCount: 20 },
+  ]),
+  async (req, res) => {
+    const uploadedFiles = req.files || {};
+    const normalizedPayload = normalizeVillaPayload(req.body);
+    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
+    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
+    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
+    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
+    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
+    const interiorImageFiles = uploadedFiles.interiorImages || [];
+    const filesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
+
+    if (!normalizedPayload.name || !normalizedPayload.location) {
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      return res.status(400).json({ message: 'Name and location are required.' });
+    }
+
+    try {
+      await Promise.all(filesToProcess.map((file) => compressUploadedImage(file)));
+    } catch (_error) {
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      return res.status(500).json({ message: 'Could not process villa images.' });
+    }
+
+    const fileUrls = getVillaFileUrls(uploadedFiles);
+
+    try {
+      const pool = await getPool();
+      const slug = await createUniqueVillaSlug(pool, normalizedPayload.name, normalizedPayload.slug);
+      const projectDetails = normalizedPayload.projectDetails && Object.keys(normalizedPayload.projectDetails).length > 0
+        ? normalizedPayload.projectDetails
+        : {
+            projectName: normalizedPayload.name,
+            location: normalizedPayload.location,
+            totalLandArea: normalizedPayload.acres,
+            totalUnits: normalizedPayload.totalVillas,
+            configuration: normalizedPayload.configuration,
+            price: normalizedPayload.startingPrice,
+            status: normalizedPayload.status,
+            reraNumber: normalizedPayload.reraNumber,
+          };
+
+      const [result] = await pool.execute(
+        `INSERT INTO villas
+          (slug, name, location, acres, total_villas, banner_image_url, status, brochure_pdf_url, description,
+           overview_title, overview_description, overview_total_land, overview_total_units, configuration, starting_price,
+           walkthrough_video_url, exterior_images, interior_images, project_highlights, project_details, amenities,
+           availability_chart_pdf_url, map_location_url, location_advantages, other_charges)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        [
+          slug,
+          normalizedPayload.name,
+          normalizedPayload.location,
+          normalizedPayload.acres || null,
+          normalizedPayload.totalVillas || null,
+          fileUrls.bannerImageUrl || null,
+          normalizedPayload.status,
+          fileUrls.brochurePdfUrl || null,
+          normalizedPayload.description || null,
+          normalizedPayload.overviewTitle || null,
+          normalizedPayload.overviewDescription || null,
+          normalizedPayload.overviewTotalLand || null,
+          normalizedPayload.overviewTotalUnits || null,
+          normalizedPayload.configuration || null,
+          normalizedPayload.startingPrice || null,
+          fileUrls.walkthroughVideoUrl || null,
+          fileUrls.exteriorImages.length > 0 ? JSON.stringify(fileUrls.exteriorImages) : null,
+          fileUrls.interiorImages.length > 0 ? JSON.stringify(fileUrls.interiorImages) : null,
+          normalizedPayload.projectHighlights.length > 0 ? JSON.stringify(normalizedPayload.projectHighlights) : null,
+          JSON.stringify(projectDetails),
+          normalizedPayload.amenities.length > 0 ? JSON.stringify(normalizedPayload.amenities) : null,
+          fileUrls.availabilityChartPdfUrl || null,
+          normalizedPayload.mapLocationUrl || null,
+          normalizedPayload.locationAdvantages.length > 0 ? JSON.stringify(normalizedPayload.locationAdvantages) : null,
+          normalizedPayload.otherCharges || null,
+        ]
+      );
+
+      const [rows] = await pool.execute(
+        `SELECT
+           id,
+           slug,
+           name,
+           location,
+           acres,
+           total_villas AS totalVillas,
+           banner_image_url AS bannerImageUrl,
+           status,
+           brochure_pdf_url AS brochurePdfUrl,
+           description,
+           overview_title AS overviewTitle,
+           overview_description AS overviewDescription,
+           overview_total_land AS overviewTotalLand,
+           overview_total_units AS overviewTotalUnits,
+           configuration,
+           starting_price AS startingPrice,
+           walkthrough_video_url AS walkthroughVideoUrl,
+           exterior_images AS exteriorImages,
+           interior_images AS interiorImages,
+           project_highlights AS projectHighlights,
+           project_details AS projectDetails,
+           amenities,
+           availability_chart_pdf_url AS availabilityChartPdfUrl,
+           map_location_url AS mapLocationUrl,
+           location_advantages AS locationAdvantages,
+           other_charges AS otherCharges,
+           created_at AS createdAt,
+           updated_at AS updatedAt
+         FROM villas
+         WHERE id = ?
+         LIMIT 1`,
+        [result.insertId]
+      );
+
+      return res.status(201).json({
+        message: 'Villa created successfully.',
+        villa: mapVillaRowForAdmin(rows[0], req),
+      });
+    } catch (_error) {
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      return res.status(500).json({ message: 'Could not create villa.' });
+    }
+  }
+);
+
+app.put(
+  '/api/admin/villas/:villaId',
+  requireAdmin,
+  villaUpload.fields([
+    { name: 'bannerImage', maxCount: 1 },
+    { name: 'brochurePdf', maxCount: 1 },
+    { name: 'walkthroughVideo', maxCount: 1 },
+    { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'exteriorImages', maxCount: 20 },
+    { name: 'interiorImages', maxCount: 20 },
+  ]),
+  async (req, res) => {
+    const villaId = Number(req.params.villaId);
+    const uploadedFiles = req.files || {};
+    const normalizedPayload = normalizeVillaPayload(req.body);
+    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
+    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
+    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
+    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
+    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
+    const interiorImageFiles = uploadedFiles.interiorImages || [];
+
+    if (!Number.isInteger(villaId) || villaId <= 0) {
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      return res.status(400).json({ message: 'Invalid villa id.' });
+    }
+
+    try {
+      const pool = await getPool();
+      const [existingRows] = await pool.execute(
+        `SELECT
+           id,
+           slug,
+           name,
+           location,
+           acres,
+           total_villas AS totalVillas,
+           banner_image_url AS bannerImageUrl,
+           status,
+           brochure_pdf_url AS brochurePdfUrl,
+           description,
+           overview_title AS overviewTitle,
+           overview_description AS overviewDescription,
+           overview_total_land AS overviewTotalLand,
+           overview_total_units AS overviewTotalUnits,
+           configuration,
+           starting_price AS startingPrice,
+           walkthrough_video_url AS walkthroughVideoUrl,
+           exterior_images AS exteriorImages,
+           interior_images AS interiorImages,
+           project_highlights AS projectHighlights,
+           project_details AS projectDetails,
+           amenities,
+           availability_chart_pdf_url AS availabilityChartPdfUrl,
+           map_location_url AS mapLocationUrl,
+           location_advantages AS locationAdvantages,
+           other_charges AS otherCharges,
+           created_at AS createdAt,
+           updated_at AS updatedAt
+         FROM villas
+         WHERE id = ?
+         LIMIT 1`,
+        [villaId]
+      );
+
+      if (existingRows.length === 0) {
+        removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+        return res.status(404).json({ message: 'Villa not found.' });
+      }
+
+      const existingRow = existingRows[0];
+      const existingHighlights = normalizeStringArray(existingRow.projectHighlights);
+      const existingAmenities = normalizeAmenityItems(existingRow.amenities);
+      const existingLocationAdvantages = normalizeStringArray(existingRow.locationAdvantages);
+      const existingExteriorImages = normalizeStringArray(existingRow.exteriorImages);
+      const existingInteriorImages = normalizeStringArray(existingRow.interiorImages);
+      const existingProjectDetails = parseJsonValue(existingRow.projectDetails, {}) || {};
+
+      const imageFilesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
+
+      if (imageFilesToProcess.length > 0) {
+        try {
+          await Promise.all(imageFilesToProcess.map((file) => compressUploadedImage(file)));
+        } catch (_error) {
+          removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+          return res.status(500).json({ message: 'Could not process villa images.' });
+        }
+      }
+
+      const fileUrls = getVillaFileUrls(uploadedFiles);
+      const nextName = normalizedPayload.name || existingRow.name || '';
+      const nextLocation = normalizedPayload.location || existingRow.location || '';
+      const nextSlug = await createUniqueVillaSlug(pool, nextName, normalizedPayload.slug || existingRow.slug, villaId);
+      const nextProjectDetails = Object.keys(normalizedPayload.projectDetails || {}).length > 0
+        ? normalizedPayload.projectDetails
+        : existingProjectDetails;
+      const nextHighlights = normalizedPayload.projectHighlights.length > 0 ? normalizedPayload.projectHighlights : existingHighlights;
+      const nextAmenities = normalizedPayload.amenities.length > 0 ? normalizedPayload.amenities : existingAmenities;
+      const nextLocationAdvantages = normalizedPayload.locationAdvantages.length > 0 ? normalizedPayload.locationAdvantages : existingLocationAdvantages;
+      const nextExteriorImages = exteriorImageFiles.length > 0 ? fileUrls.exteriorImages : existingExteriorImages;
+      const nextInteriorImages = interiorImageFiles.length > 0 ? fileUrls.interiorImages : existingInteriorImages;
+      const nextBannerImageUrl = bannerImageFile ? fileUrls.bannerImageUrl : existingRow.bannerImageUrl;
+      const nextBrochurePdfUrl = brochurePdfFile ? fileUrls.brochurePdfUrl : existingRow.brochurePdfUrl;
+      const nextWalkthroughVideoUrl = walkthroughVideoFile ? fileUrls.walkthroughVideoUrl : existingRow.walkthroughVideoUrl;
+      const nextAvailabilityChartPdfUrl = availabilityChartPdfFile ? fileUrls.availabilityChartPdfUrl : existingRow.availabilityChartPdfUrl;
+      const nextDescription = normalizedPayload.description || existingRow.description || '';
+      const nextOverviewTitle = normalizedPayload.overviewTitle || existingRow.overviewTitle || '';
+      const nextOverviewDescription = normalizedPayload.overviewDescription || existingRow.overviewDescription || '';
+      const nextOverviewTotalLand = normalizedPayload.overviewTotalLand || existingRow.overviewTotalLand || '';
+      const nextOverviewTotalUnits = normalizedPayload.overviewTotalUnits || existingRow.overviewTotalUnits || '';
+      const nextConfiguration = normalizedPayload.configuration || existingRow.configuration || '';
+      const nextStartingPrice = normalizedPayload.startingPrice || existingRow.startingPrice || '';
+      const nextStatus = normalizeVillaStatus(normalizedPayload.status, existingRow.status || 'draft');
+      const nextAcres = normalizedPayload.acres || existingRow.acres || '';
+      const nextTotalVillas = normalizedPayload.totalVillas || existingRow.totalVillas || '';
+      const nextMapLocationUrl = normalizedPayload.mapLocationUrl || existingRow.mapLocationUrl || '';
+      const nextOtherCharges = normalizedPayload.otherCharges || existingRow.otherCharges || '';
+      const mergedProjectDetails = {
+        ...nextProjectDetails,
+        projectName: nextProjectDetails.projectName || nextName,
+        location: nextProjectDetails.location || nextLocation,
+        totalLandArea: nextProjectDetails.totalLandArea || nextAcres,
+        totalUnits: nextProjectDetails.totalUnits || nextTotalVillas,
+        configuration: nextProjectDetails.configuration || nextConfiguration,
+        price: nextProjectDetails.price || nextStartingPrice,
+        status: nextProjectDetails.status || nextStatus,
+        reraNumber: nextProjectDetails.reraNumber || normalizedPayload.reraNumber || existingProjectDetails.reraNumber || '',
+      };
+
+      await pool.execute(
+        `UPDATE villas
+         SET
+           slug = ?,
+           name = ?,
+           location = ?,
+           acres = ?,
+           total_villas = ?,
+           banner_image_url = ?,
+           status = ?,
+           brochure_pdf_url = ?,
+           description = ?,
+           overview_title = ?,
+           overview_description = ?,
+           overview_total_land = ?,
+           overview_total_units = ?,
+           configuration = ?,
+           starting_price = ?,
+           walkthrough_video_url = ?,
+           exterior_images = ?,
+           interior_images = ?,
+           project_highlights = ?,
+           project_details = ?,
+           amenities = ?,
+           availability_chart_pdf_url = ?,
+           map_location_url = ?,
+           location_advantages = ?,
+           other_charges = ?
+         WHERE id = ?`,
+        [
+          nextSlug,
+          nextName,
+          nextLocation,
+          nextAcres || null,
+          nextTotalVillas || null,
+          nextBannerImageUrl || null,
+          nextStatus,
+          nextBrochurePdfUrl || null,
+          nextDescription || null,
+          nextOverviewTitle || null,
+          nextOverviewDescription || null,
+          nextOverviewTotalLand || null,
+          nextOverviewTotalUnits || null,
+          nextConfiguration || null,
+          nextStartingPrice || null,
+          nextWalkthroughVideoUrl || null,
+          nextExteriorImages.length > 0 ? JSON.stringify(nextExteriorImages) : null,
+          nextInteriorImages.length > 0 ? JSON.stringify(nextInteriorImages) : null,
+          nextHighlights.length > 0 ? JSON.stringify(nextHighlights) : null,
+          JSON.stringify(mergedProjectDetails),
+          nextAmenities.length > 0 ? JSON.stringify(nextAmenities) : null,
+          nextAvailabilityChartPdfUrl || null,
+          nextMapLocationUrl || null,
+          nextLocationAdvantages.length > 0 ? JSON.stringify(nextLocationAdvantages) : null,
+          nextOtherCharges || null,
+          villaId,
+        ]
+      );
+
+      if (bannerImageFile && existingRow.bannerImageUrl) {
+        removeStoredImages([existingRow.bannerImageUrl]);
+      }
+
+      if (brochurePdfFile && existingRow.brochurePdfUrl) {
+        removeStoredImages([existingRow.brochurePdfUrl]);
+      }
+
+      if (walkthroughVideoFile && existingRow.walkthroughVideoUrl) {
+        removeStoredImages([existingRow.walkthroughVideoUrl]);
+      }
+
+      if (availabilityChartPdfFile && existingRow.availabilityChartPdfUrl) {
+        removeStoredImages([existingRow.availabilityChartPdfUrl]);
+      }
+
+      if (exteriorImageFiles.length > 0 && existingExteriorImages.length > 0) {
+        removeStoredImages(existingExteriorImages);
+      }
+
+      if (interiorImageFiles.length > 0 && existingInteriorImages.length > 0) {
+        removeStoredImages(existingInteriorImages);
+      }
+
+      const [rows] = await pool.execute(
+        `SELECT
+           id,
+           slug,
+           name,
+           location,
+           acres,
+           total_villas AS totalVillas,
+           banner_image_url AS bannerImageUrl,
+           status,
+           brochure_pdf_url AS brochurePdfUrl,
+           description,
+           overview_title AS overviewTitle,
+           overview_description AS overviewDescription,
+           overview_total_land AS overviewTotalLand,
+           overview_total_units AS overviewTotalUnits,
+           configuration,
+           starting_price AS startingPrice,
+           walkthrough_video_url AS walkthroughVideoUrl,
+           exterior_images AS exteriorImages,
+           interior_images AS interiorImages,
+           project_highlights AS projectHighlights,
+           project_details AS projectDetails,
+           amenities,
+           availability_chart_pdf_url AS availabilityChartPdfUrl,
+           map_location_url AS mapLocationUrl,
+           location_advantages AS locationAdvantages,
+           other_charges AS otherCharges,
+           created_at AS createdAt,
+           updated_at AS updatedAt
+         FROM villas
+         WHERE id = ?
+         LIMIT 1`,
+        [villaId]
+      );
+
+      return res.json({
+        message: 'Villa updated successfully.',
+        villa: mapVillaRowForAdmin(rows[0], req),
+      });
+    } catch (_error) {
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      return res.status(500).json({ message: 'Could not update villa.' });
+    }
+  }
+);
+
+app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
+  const villaId = Number(req.params.villaId);
+
+  if (!Number.isInteger(villaId) || villaId <= 0) {
+    return res.status(400).json({ message: 'Invalid villa id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         banner_image_url AS bannerImageUrl,
+         brochure_pdf_url AS brochurePdfUrl,
+         walkthrough_video_url AS walkthroughVideoUrl,
+         availability_chart_pdf_url AS availabilityChartPdfUrl,
+         exterior_images AS exteriorImages,
+         interior_images AS interiorImages
+       FROM villas
+       WHERE id = ?
+       LIMIT 1`,
+      [villaId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Villa not found.' });
+    }
+
+    await pool.execute('DELETE FROM villas WHERE id = ?', [villaId]);
+    removeStoredImages([
+      rows[0].bannerImageUrl,
+      rows[0].brochurePdfUrl,
+      rows[0].walkthroughVideoUrl,
+      rows[0].availabilityChartPdfUrl,
+      ...normalizeStringArray(rows[0].exteriorImages),
+      ...normalizeStringArray(rows[0].interiorImages),
+    ]);
+
+    return res.json({ message: 'Villa deleted successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not delete villa.' });
   }
 });
 

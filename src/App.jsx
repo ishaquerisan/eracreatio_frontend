@@ -38,6 +38,7 @@ const AppShell = () => {
           <Route path="/" element={<Home />} />
           <Route path="/villa-projects" element={<VillaProjects />} />
           <Route path="/villa/era-emerald" element={<EraEmerald />} />
+          <Route path="/villa/:villaSlug" element={<EraEmerald />} />
           <Route path="/independent-residences" element={<IndependentResidences />} />
           <Route path="/independent-residences/gallery" element={<IndependentResidencesGallery />} />
           <Route path="/commercial-projects" element={<CommercialProjects />} />
