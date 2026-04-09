@@ -5,14 +5,10 @@ import { FaBuilding, FaLeaf, FaLocationDot, FaMagnifyingGlass, FaScaleBalanced }
 import HeroSlider from '../components/HeroSlider';
 import CounterSection from '../components/CounterSection';
 import CTASection from '../components/CTASection';
-import { villaProjects } from '../data/projectsData';
 import { getPublicVillas } from '../services/api';
 
 const Home = () => {
-  const [featuredProjects, setFeaturedProjects] = useState([
-    villaProjects.ongoing[0],
-    villaProjects.upcoming[0]
-  ].filter(Boolean));
+  const [featuredProjects, setFeaturedProjects] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,11 +29,9 @@ const Home = () => {
           image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
         }));
 
-        const ongoingVilla = mappedProjects.find((villa) => villa.status.toLowerCase() === 'ongoing');
-        const upcomingVilla = mappedProjects.find((villa) => villa.status.toLowerCase() === 'upcoming');
-        const nextFeatured = [ongoingVilla, upcomingVilla].filter(Boolean);
+        const nextFeatured = mappedProjects.filter((villa) => ['ongoing', 'upcoming'].includes(villa.status.toLowerCase()));
 
-        if (isMounted && nextFeatured.length > 0) {
+        if (isMounted) {
           setFeaturedProjects(nextFeatured);
         }
       } catch (_error) {
@@ -122,6 +116,7 @@ const Home = () => {
       </section>
 
       {/* Featured Projects */}
+      {featuredProjects.length > 0 && (
       <section className="py-10 sm:py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -189,6 +184,7 @@ const Home = () => {
           </div>
         </div>
       </section>
+      )}
 
       {/* Why Choose Us */}
       <section className="py-10 sm:py-20 bg-neutral-50">

@@ -2,10 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { FaLocationDot } from 'react-icons/fa6';
-import { villaProjects } from '../data/projectsData';
 import { getPublicVillas } from '../services/api';
-
-const seededProjects = [...villaProjects.ongoing, ...villaProjects.upcoming];
 
 function normalizeVillaCard(villa) {
   return {
@@ -16,7 +13,7 @@ function normalizeVillaCard(villa) {
     status: String(villa.status || 'ongoing').toLowerCase(),
     landArea: villa.acres || villa.overviewTotalLand || '-',
     units: villa.totalVillas || villa.overviewTotalUnits || '-',
-    image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || seededProjects[0]?.image || '',
+    image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
   };
 }
 
@@ -27,8 +24,8 @@ function splitVillasByTab(villas) {
   const completed = liveVillas.filter((villa) => villa.status === 'completed');
 
   return {
-    ongoing: ongoing.length > 0 ? ongoing : seededProjects.filter((project) => project.status === 'Ongoing'),
-    upcoming: upcoming.length > 0 ? upcoming : seededProjects.filter((project) => project.status === 'Upcoming'),
+    ongoing,
+    upcoming,
     completed: completed.length > 0 ? completed : [],
   };
 }
@@ -52,8 +49,8 @@ function getStatusLabel(status) {
 const VillaProjects = () => {
   const [activeTab, setActiveTab] = useState('ongoing');
   const [projectsByTab, setProjectsByTab] = useState({
-    ongoing: seededProjects.filter((project) => project.status === 'Ongoing'),
-    upcoming: seededProjects.filter((project) => project.status === 'Upcoming'),
+    ongoing: [],
+    upcoming: [],
     completed: [],
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -177,10 +174,6 @@ const VillaProjects = () => {
               </motion.div>
             ))}
           </div>
-
-          {!isLoading && projects.length === 0 ? (
-            <p className="mt-6 text-center text-textGrey text-sm">No villa projects are available yet.</p>
-          ) : null}
         </div>
       </section>
     </div>

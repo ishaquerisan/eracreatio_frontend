@@ -466,6 +466,35 @@ function cleanAmenities(values) {
     .filter((item) => item.title || item.desc || item.icon);
 }
 
+function isBasicVillaFormComplete(form) {
+  return Boolean(
+    String(form.name || '').trim()
+    && String(form.location || '').trim()
+    && String(form.acres || '').trim()
+    && String(form.totalVillas || '').trim()
+    && (form.bannerImageFile || form.existingBannerImageUrl)
+  );
+}
+
+function getNextStepIndex(currentStepIndex) {
+  return Math.min(WIZARD_STEPS.length - 1, currentStepIndex + 1);
+}
+
+function isEnterKeyOnFormField(event) {
+  const target = event.target;
+
+  if (!target || target.isContentEditable) {
+    return false;
+  }
+
+  const tagName = String(target.tagName || '').toLowerCase();
+  if (tagName === 'textarea') {
+    return false;
+  }
+
+  return tagName === 'input' || tagName === 'select';
+}
+
 function VillaProjectsAdmin({ token }) {
   const [villas, setVillas] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -756,12 +785,28 @@ function VillaProjectsAdmin({ token }) {
     }
   };
 
+  const handleFormKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    if (!isEnterKeyOnFormField(event)) {
+      return;
+    }
+
+    if (activeStep < WIZARD_STEPS.length - 1) {
+      event.preventDefault();
+      setActiveStep((previous) => Math.min(WIZARD_STEPS.length - 1, previous + 1));
+    }
+  };
+
   const submitVilla = async (event) => {
     event.preventDefault();
     setMessage({ type: '', text: '' });
 
     const requestedMode = event.nativeEvent?.submitter?.dataset?.submitMode || submitMode;
     const viewWindow = requestedMode === 'saveView' ? window.open('', '_blank') : null;
+    const shouldAdvanceAfterSave = !form.id && requestedMode === 'save';
 
     if (!form.name.trim() || !form.location.trim()) {
       setMessage({ type: 'error', text: 'Project name and location are required.' });
@@ -863,10 +908,18 @@ function VillaProjectsAdmin({ token }) {
               window.open(nextUrl, '_blank', 'noopener,noreferrer');
             }
           }
+        } else if (shouldAdvanceAfterSave) {
+          const nextStepIndex = getNextStepIndex(activeStep);
+          if (nextStepIndex !== activeStep) {
+            setActiveStep(nextStepIndex);
+          }
         }
       }
 
-      closeForm();
+      if (form.id || requestedMode === 'saveView') {
+        closeForm();
+      }
+
       const data = await getAdminVillas(token);
       setVillas(data.villas || []);
     } catch (error) {
@@ -908,6 +961,8 @@ function VillaProjectsAdmin({ token }) {
   };
 
   const currentStep = WIZARD_STEPS[activeStep] || WIZARD_STEPS[0];
+  const isEditMode = Boolean(form.id);
+  const isBasicComplete = isEditMode || isBasicVillaFormComplete(form);
 
   if (!token) {
     return null;
@@ -996,31 +1051,36 @@ function VillaProjectsAdmin({ token }) {
       case 'detailed':
         return (
           <div className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              <select
-                value={form.status}
-                onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-              >
-                <option value="draft">Draft</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-              </select>
-              <input
-                ref={brochureInputRef}
-                type="file"
-                accept="application/pdf"
-                onChange={(event) => handleSingleFileSelection('brochurePdfFile', 'brochurePdfName', event)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent bg-white"
-              />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3 text-sm text-textGrey">
+            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr] items-start">
               <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-primary mb-1">Brochure PDF</p>
-                <p>{form.brochurePdfName || (form.existingBrochurePdfUrl ? 'Current brochure is set' : 'No file selected')}</p>
+                <p className="font-medium text-primary mb-2">Status</p>
+                <select
+                  value={form.status}
+                  onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="completed">Completed</option>
+                </select>
               </div>
+
               <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-primary mb-1">Walkthrough Video</p>
+                <p className="font-medium text-primary mb-2">Brochure PDF</p>
+                <input
+                  ref={brochureInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(event) => handleSingleFileSelection('brochurePdfFile', 'brochurePdfName', event)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent bg-white"
+                />
+                <p className="mt-2 text-sm text-textGrey">{form.brochurePdfName || (form.existingBrochurePdfUrl ? 'Current brochure is set' : 'No file selected')}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr] items-start text-sm text-textGrey">
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <p className="font-medium text-primary mb-2">Walkthrough Video</p>
                 <input
                   ref={walkthroughVideoInputRef}
                   type="file"
@@ -1435,7 +1495,6 @@ function VillaProjectsAdmin({ token }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="font-serif text-2xl text-primary">Villa Projects</h3>
-          <p className="text-sm text-textGrey mt-1">Create, edit, and publish villa detail pages with a step-by-step draft-friendly workflow.</p>
         </div>
         {!showForm ? (
           <button
@@ -1449,12 +1508,10 @@ function VillaProjectsAdmin({ token }) {
       </div>
 
       {showForm ? (
-        <form onSubmit={submitVilla} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-5">
+        <form onSubmit={submitVilla} onKeyDown={handleFormKeyDown} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-serif text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>
-              <p className="text-sm text-textGrey mt-1">Sections are saved together, but you can jump between them and finish later.</p>
-            </div>
+              <h3 className="font-serif text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>            </div>
             <button type="button" onClick={closeForm} className="text-sm text-accent font-medium">Close</button>
           </div>
 
@@ -1463,13 +1520,32 @@ function VillaProjectsAdmin({ token }) {
               <button
                 key={step.id}
                 type="button"
-                onClick={() => setActiveStep(index)}
-                className={`rounded-full px-3 py-2 text-xs font-medium transition-colors ${activeStep === index ? 'bg-[#C6A769] text-white' : 'bg-white text-primary border border-gray-200'}`}
+                onClick={() => {
+                  if (index > 0 && !isBasicComplete) {
+                    return;
+                  }
+
+                  setActiveStep(index);
+                }}
+                disabled={index > 0 && !isBasicComplete}
+                className={`rounded-full px-3 py-2 text-xs font-medium transition-colors ${
+                  activeStep === index
+                    ? 'bg-[#C6A769] text-white'
+                    : index > 0 && !isBasicComplete
+                      ? 'bg-white text-primary border border-gray-200 opacity-45 cursor-not-allowed'
+                      : 'bg-white text-primary border border-gray-200'
+                }`}
               >
                 {index + 1}. {step.title}
               </button>
             ))}
           </div>
+
+          {!isBasicComplete ? (
+            <p className="text-sm text-textGrey">
+              Complete the Basic Data section to unlock the remaining steps.
+            </p>
+          ) : null}
 
           <div className="rounded-2xl bg-white border border-gray-200 p-4 sm:p-6">
             <div className="mb-4">
@@ -1493,21 +1569,13 @@ function VillaProjectsAdmin({ token }) {
                 <button
                   type="button"
                   onClick={() => setActiveStep((previous) => Math.min(WIZARD_STEPS.length - 1, previous + 1))}
-                  disabled={activeStep === WIZARD_STEPS.length - 1}
+                  disabled={activeStep === WIZARD_STEPS.length - 1 || (!isBasicComplete && activeStep === 0)}
                   className="px-4 py-2 rounded-luxury border border-gray-300 text-sm text-textGrey disabled:opacity-50"
                 >
                   Next
                 </button>
               </div>
 
-              <button
-                type="submit"
-                disabled={isSaving}
-                data-submit-mode="save"
-                className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
-              >
-                {isSaving ? 'Saving...' : form.id ? 'Update Villa' : 'Save Villa Draft'}
-              </button>
               <button
                 type="submit"
                 disabled={isSaving}
