@@ -8,6 +8,8 @@ import {
   FaLinkedinIn,
   FaLocationDot,
   FaPhone,
+  FaYoutube,
+  FaXTwitter,
 } from 'react-icons/fa6';
 import { CONTACT_DETAILS } from '../../data/contactDetails';
 import { postNewsletterSubscription } from '../../services/api';
@@ -50,17 +52,36 @@ const Footer = () => {
               Redefining luxury living in Kerala since 2018. Building dreams, creating legacies.
             </p>
             <div className="flex space-x-3 sm:space-x-4 justify-center sm:justify-start">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" 
+              <a href="https://www.facebook.com/profile.php?id=100064388880293" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
                 <FaFacebookF className="text-sm sm:text-base" />
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.instagram.com/eracreatio_developers" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
                 <FaInstagram className="text-base sm:text-lg" />
               </a>
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
+              {/* <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
                 className="w-9 h-9 sm:w-10 sm:h-10 bg-white bg-opacity-10 rounded-full flex items-center justify-center hover:bg-accent transition-colors">
                 <FaLinkedinIn className="text-sm sm:text-base" />
+              </a> */}
+              <a
+                href="https://x.com/Eragroupeofcom1"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Twitter"
+                className="w-9 h-9 sm:w-10 sm:h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-all duration-300"
+              >
+                <FaXTwitter className="text-sm sm:text-base" />
+              </a>
+
+              <a
+                href="https://www.youtube.com/channel/UCAVMaq2D1Xfy2ntmgRHdc2A"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="YouTube"
+                className="w-9 h-9 sm:w-10 sm:h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-all duration-300"
+              >
+                <FaYoutube className="text-sm sm:text-base" />
               </a>
             </div>
           </div>

@@ -193,8 +193,7 @@ const AvailabilityPreview = ({ pdfUrl }) => (
     ) : (
       <div className="flex min-h-[340px] items-center justify-center bg-bgLight px-6 py-10 text-center text-textGrey">
         <div>
-          <p className="text-base font-semibold text-primary">Availability chart not uploaded yet</p>
-          <p className="mt-2 text-sm">Leave this section blank until a PDF is added from the admin panel.</p>
+          <p className="text-base font-semibold text-primary">Availability chart not available</p>
         </div>
       </div>
     )}

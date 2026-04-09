@@ -1198,7 +1198,7 @@ const Admin = () => {
     }
   };
 
-if (!token) {
+  if (!token) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
@@ -1245,74 +1245,78 @@ if (!token) {
     <div className="min-h-screen bg-bgLight pt-10 sm:pt-12 pb-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <section className="bg-[#C6A769] text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <h1 className="font-serif text-3xl sm:text-4xl mt-1">Admin Dashboard</h1>
+          <div className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="shrink-0">
+                <h1 className="font-serif text-3xl sm:text-4xl leading-tight">Admin Dashboard</h1>
+              </div>
 
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="self-start md:self-auto whitespace-nowrap bg-white text-primary px-6 py-3 rounded-luxury font-medium"
+              >
+                Logout
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="self-start lg:self-center bg-white text-primary px-6 py-3 rounded-luxury font-medium"
-            >
-              Logout
-            </button>
-          </div>
 
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max flex-nowrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('contacts')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'contacts' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Contact Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('blogs')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'blogs' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Write Journals & Blogs
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('galleries')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'galleries' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Manage Galleries
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('commercialProjects')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'commercialProjects' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Commercial Developments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('villas')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'villas' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Villa Projects
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('newsletter')}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'newsletter' ? 'bg-bgLight text-primary' : 'text-white'
+                    }`}
+                >
+                  Newsletter Subscriptions
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="bg-white rounded-3xl shadow-lg p-4 sm:p-6">
-          <div className="flex flex-wrap gap-3">
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('contacts')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'contacts' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Contact Details
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('blogs')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'blogs' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Write Journals & Blogs
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('galleries')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'galleries' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Manage Galleries
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('commercialProjects')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'commercialProjects' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Commercial Developments
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('villas')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'villas' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Villa Projects
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('newsletter')}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${activeTab === 'newsletter' ? 'bg-[#C6A769] text-white' : 'bg-bgLight text-primary'
-                }`}
-            >
-              Newsletter Subscriptions
-            </button>
-          </div>
 
           {isBootstrapping || isLoadingData ? (
             <p className="text-textGrey mt-6">Loading data...</p>
