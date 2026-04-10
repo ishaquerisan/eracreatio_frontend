@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import { FaLocationDot } from 'react-icons/fa6';
 
 const ProjectCard = ({ project, index }) => {
@@ -58,12 +57,6 @@ const ProjectCard = ({ project, index }) => {
           )}
         </div>
 
-        <Link
-          to={`/project/${project.id}`}
-          className="block w-full text-center bg-primary text-white py-2.5 sm:py-3 rounded-luxury hover:bg-accent transition-colors font-medium text-sm sm:text-base"
-        >
-          View Details
-        </Link>
       </div>
     </motion.div>
   );

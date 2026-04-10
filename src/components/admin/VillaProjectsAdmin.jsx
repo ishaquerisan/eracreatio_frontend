@@ -190,7 +190,7 @@ function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, 
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+      <div className="flex items-center gap-2 text-sm text-primary">
         <FaMapLocationDot className="text-accent" />
         Pin the exact villa location
       </div>
@@ -206,7 +206,7 @@ function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, 
           type="button"
           onClick={onSearch}
           disabled={isSearching}
-          className="px-5 py-3 rounded-xl bg-primary text-white font-medium disabled:opacity-60"
+          className="px-5 py-3 rounded-xl bg-primary text-white disabled:opacity-60"
         >
           <span className="inline-flex items-center gap-2">
             <FaMagnifyingGlass />
@@ -228,7 +228,7 @@ function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, 
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-textGrey">
         <span>
-          Selected pin: <span className="text-primary font-medium">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
+          Selected pin: <span className="text-primary">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
         </span>
         <span>{searchStatus || 'Click the map or drag the pin to update the project location.'}</span>
       </div>
@@ -238,7 +238,7 @@ function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, 
           href={value}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 text-accent font-medium text-sm"
+          className="inline-flex items-center gap-2 text-accent text-sm"
         >
           <FaLocationDot /> Open selected pin in Maps
         </a>
@@ -438,10 +438,10 @@ function mapVillaToForm(villa) {
     locationAdvantages: normalizeArrayValue(villa.locationAdvantages).concat(['']).slice(0, Math.max(1, normalizeArrayValue(villa.locationAdvantages).length + 1)),
     amenities: Array.isArray(villa.amenities) && villa.amenities.length > 0
       ? villa.amenities.map((item) => ({
-          title: String(item.title || '').trim(),
-          desc: String(item.desc || '').trim(),
-          icon: String(item.icon || '').trim(),
-        }))
+        title: String(item.title || '').trim(),
+        desc: String(item.desc || '').trim(),
+        icon: String(item.icon || '').trim(),
+      }))
       : [{ ...EMPTY_AMENITY }],
     existingBannerImageUrl: villa.bannerImage || villa.image || '',
     existingBrochurePdfUrl: villa.brochurePdfUrl || '',
@@ -480,6 +480,10 @@ function getNextStepIndex(currentStepIndex) {
   return Math.min(WIZARD_STEPS.length - 1, currentStepIndex + 1);
 }
 
+function isBasicOnlyVilla(form) {
+  return String(form.status || '').trim().toLowerCase() === 'upcoming';
+}
+
 function isEnterKeyOnFormField(event) {
   const target = event.target;
 
@@ -502,7 +506,6 @@ function VillaProjectsAdmin({ token }) {
   const [showForm, setShowForm] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [submitMode, setSubmitMode] = useState('save');
   const [deletingVillaId, setDeletingVillaId] = useState(null);
   const [form, setForm] = useState(createEmptyVillaForm());
   const [amenityIconSearches, setAmenityIconSearches] = useState({});
@@ -617,7 +620,6 @@ function VillaProjectsAdmin({ token }) {
     setAmenityIconSearches({});
     setMapSearchValue('');
     setMapSearchStatus('');
-    setSubmitMode('save');
     resetUploadInputs();
     setActiveStep(0);
   };
@@ -644,7 +646,6 @@ function VillaProjectsAdmin({ token }) {
     setAmenityIconSearches({});
     setMapSearchValue('');
     setMapSearchStatus('');
-    setSubmitMode('save');
     resetUploadInputs();
     setMessage({ type: '', text: '' });
     setActiveStep(0);
@@ -794,7 +795,7 @@ function VillaProjectsAdmin({ token }) {
       return;
     }
 
-    if (activeStep < WIZARD_STEPS.length - 1) {
+    if (!isBasicOnly && activeStep < WIZARD_STEPS.length - 1) {
       event.preventDefault();
       setActiveStep((previous) => Math.min(WIZARD_STEPS.length - 1, previous + 1));
     }
@@ -803,10 +804,6 @@ function VillaProjectsAdmin({ token }) {
   const submitVilla = async (event) => {
     event.preventDefault();
     setMessage({ type: '', text: '' });
-
-    const requestedMode = event.nativeEvent?.submitter?.dataset?.submitMode || submitMode;
-    const viewWindow = requestedMode === 'saveView' ? window.open('', '_blank') : null;
-    const shouldAdvanceAfterSave = !form.id && requestedMode === 'save';
 
     if (!form.name.trim() || !form.location.trim()) {
       setMessage({ type: 'error', text: 'Project name and location are required.' });
@@ -875,61 +872,32 @@ function VillaProjectsAdmin({ token }) {
         }
       });
 
-      if (form.id) {
-        const response = await updateAdminVilla(token, form.id, payload);
-        setMessage({ type: 'success', text: 'Villa updated successfully.' });
+      const saveResponse = form.id
+        ? await updateAdminVilla(token, form.id, payload)
+        : await createAdminVilla(token, payload);
 
-        if (requestedMode === 'saveView') {
-          const savedVilla = response?.villa;
-          const nextSlug = savedVilla?.slug || form.slug.trim() || form.id;
-          if (nextSlug) {
-            const nextUrl = `${window.location.origin}/villa/${nextSlug}`;
-            if (viewWindow) {
-              viewWindow.location.replace(nextUrl);
-              viewWindow.focus();
-            } else {
-              window.open(nextUrl, '_blank', 'noopener,noreferrer');
-            }
-          }
-        }
-      } else {
-        const response = await createAdminVilla(token, payload);
-        setMessage({ type: 'success', text: 'Villa created successfully.' });
+      const savedVilla = saveResponse?.villa;
 
-        if (requestedMode === 'saveView') {
-          const savedVilla = response?.villa;
-          const nextSlug = savedVilla?.slug || form.slug.trim() || savedVilla?.id;
-          if (nextSlug) {
-            const nextUrl = `${window.location.origin}/villa/${nextSlug}`;
-            if (viewWindow) {
-              viewWindow.location.replace(nextUrl);
-              viewWindow.focus();
-            } else {
-              window.open(nextUrl, '_blank', 'noopener,noreferrer');
-            }
-          }
-        } else if (shouldAdvanceAfterSave) {
-          const nextStepIndex = getNextStepIndex(activeStep);
-          if (nextStepIndex !== activeStep) {
-            setActiveStep(nextStepIndex);
-          }
-        }
+      if (savedVilla) {
+        setForm((previous) => {
+          revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+          revokePreviewEntryList(previous.exteriorImages);
+          revokePreviewEntryList(previous.interiorImages);
+          return mapVillaToForm(savedVilla);
+        });
       }
 
-      if (form.id || requestedMode === 'saveView') {
-        closeForm();
-      }
+      setMessage({
+        type: 'success',
+        text: form.id ? 'Villa updated successfully.' : 'Villa created successfully.',
+      });
 
       const data = await getAdminVillas(token);
       setVillas(data.villas || []);
     } catch (error) {
-      if (viewWindow) {
-        viewWindow.close();
-      }
       setMessage({ type: 'error', text: error.message || 'Could not save villa.' });
     } finally {
       setIsSaving(false);
-      setSubmitMode('save');
     }
   };
 
@@ -963,6 +931,14 @@ function VillaProjectsAdmin({ token }) {
   const currentStep = WIZARD_STEPS[activeStep] || WIZARD_STEPS[0];
   const isEditMode = Boolean(form.id);
   const isBasicComplete = isEditMode || isBasicVillaFormComplete(form);
+  const isBasicOnly = isBasicOnlyVilla(form);
+  const visibleSteps = isBasicOnly ? WIZARD_STEPS.slice(0, 1) : WIZARD_STEPS;
+
+  useEffect(() => {
+    if (isBasicOnly && activeStep !== 0) {
+      setActiveStep(0);
+    }
+  }, [activeStep, isBasicOnly]);
 
   if (!token) {
     return null;
@@ -1015,6 +991,19 @@ function VillaProjectsAdmin({ token }) {
                 onChange={(event) => setForm((previous) => ({ ...previous, totalVillas: event.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <p className="text-primary mb-2">Status</p>
+                <select
+                  value={form.status}
+                  onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="upcoming">Upcoming</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
               <div className="rounded-2xl border border-primary/15 bg-white p-4">
                 <input
                   ref={bannerInputRef}
@@ -1027,7 +1016,7 @@ function VillaProjectsAdmin({ token }) {
                 <div className="flex flex-wrap items-center gap-3">
                   <label
                     htmlFor="villa-banner-upload"
-                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     {form.id ? 'Replace Banner Image' : 'Choose Banner Image'}
                   </label>
@@ -1046,6 +1035,12 @@ function VillaProjectsAdmin({ token }) {
             ) : form.existingBannerImageUrl ? (
               <img src={form.existingBannerImageUrl} alt="Current banner" className="h-48 w-full rounded-xl object-cover border border-gray-200" />
             ) : null}
+
+            {isBasicOnly ? (
+              <p className="text-sm text-textGrey">
+                Upcoming villas only need the Basic Data section. You can save now and return later to add the rest.
+              </p>
+            ) : null}
           </div>
         );
       case 'detailed':
@@ -1053,20 +1048,7 @@ function VillaProjectsAdmin({ token }) {
           <div className="space-y-4">
             <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr] items-start">
               <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-primary mb-2">Status</p>
-                <select
-                  value={form.status}
-                  onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="ongoing">Ongoing</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-primary mb-2">Brochure PDF</p>
+                <p className="text-primary mb-2">Brochure PDF</p>
                 <input
                   ref={brochureInputRef}
                   type="file"
@@ -1075,22 +1057,21 @@ function VillaProjectsAdmin({ token }) {
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                 />
                 <p className="mt-2 text-sm text-textGrey">{form.brochurePdfName || (form.existingBrochurePdfUrl ? 'Current brochure is set' : 'No file selected')}</p>
-              </div>
+              </div> 
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-primary mb-2">Walkthrough Video</p>
+                  <input
+                    ref={walkthroughVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={(event) => handleSingleFileSelection('walkthroughVideoFile', 'walkthroughVideoName', event)}
+                    className="w-full text-sm"
+                  />
+                  <p className="mt-2">{form.walkthroughVideoName || (form.existingWalkthroughVideoUrl ? 'Current walkthrough is set' : 'No file selected')}</p>
+                </div> 
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr] items-start text-sm text-textGrey">
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="font-medium text-primary mb-2">Walkthrough Video</p>
-                <input
-                  ref={walkthroughVideoInputRef}
-                  type="file"
-                  accept="video/*"
-                  onChange={(event) => handleSingleFileSelection('walkthroughVideoFile', 'walkthroughVideoName', event)}
-                  className="w-full text-sm"
-                />
-                <p className="mt-2">{form.walkthroughVideoName || (form.existingWalkthroughVideoUrl ? 'Current walkthrough is set' : 'No file selected')}</p>
-              </div>
-            </div>
+
             <textarea
               placeholder="Description"
               value={form.description}
@@ -1169,8 +1150,8 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-exterior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90">Choose Exterior Images</label>
-                <button type="button" onClick={() => clearMultiImages('exteriorImages')} className="text-sm text-accent font-medium">Clear</button>
+                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
+                <button type="button" onClick={() => clearMultiImages('exteriorImages')} className="text-sm text-accent">Clear</button>
               </div>
               {form.exteriorImages.length > 0 ? (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1203,8 +1184,8 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-interior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90">Choose Interior Images</label>
-                <button type="button" onClick={() => clearMultiImages('interiorImages')} className="text-sm text-accent font-medium">Clear</button>
+                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
+                <button type="button" onClick={() => clearMultiImages('interiorImages')} className="text-sm text-accent">Clear</button>
               </div>
               {form.interiorImages.length > 0 ? (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1243,7 +1224,7 @@ function VillaProjectsAdmin({ token }) {
                 <button type="button" onClick={() => removeArrayRow('projectHighlights', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('projectHighlights', '')} className="text-sm font-medium text-accent">Add highlight</button>
+            <button type="button" onClick={() => addArrayRow('projectHighlights', '')} className="text-sm text-accent">Add highlight</button>
           </div>
         );
       case 'details':
@@ -1252,27 +1233,27 @@ function VillaProjectsAdmin({ token }) {
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Project name</p>
-                <p className="mt-1 text-primary font-semibold">{form.name || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.name || 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Location</p>
-                <p className="mt-1 text-primary font-semibold">{form.location || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.location || 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Total land</p>
-                <p className="mt-1 text-primary font-semibold">{form.acres || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.acres || 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Total units</p>
-                <p className="mt-1 text-primary font-semibold">{form.totalVillas || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.totalVillas || 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Configuration</p>
-                <p className="mt-1 text-primary font-semibold">{form.configuration || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.configuration || 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Starting price</p>
-                <p className="mt-1 text-primary font-semibold">{form.startingPrice || 'Not set'}</p>
+                <p className="mt-1 text-primary">{form.startingPrice || 'Not set'}</p>
               </div>
             </div>
             <div className="rounded-xl bg-white border border-gray-200 p-4">
@@ -1281,7 +1262,7 @@ function VillaProjectsAdmin({ token }) {
             </div>
             <div className="rounded-xl bg-white border border-gray-200 p-4">
               <p className="text-xs uppercase tracking-wide text-textGrey">RERA number</p>
-              <p className="mt-1 text-primary font-semibold">{form.reraNumber || 'Not set'}</p>
+              <p className="mt-1 text-primary">{form.reraNumber || 'Not set'}</p>
             </div>
           </div>
         );
@@ -1369,7 +1350,7 @@ function VillaProjectsAdmin({ token }) {
                         >
                           <span className="flex items-center gap-2 min-w-0">
                             <SelectedIcon className="shrink-0 text-accent" />
-                            <span className="truncate text-sm font-medium text-primary">{option.label}</span>
+                            <span className="truncate text-sm text-primary">{option.label}</span>
                           </span>
                           {isSelected ? <FaCheck className="shrink-0 text-accent" /> : null}
                         </button>
@@ -1379,7 +1360,7 @@ function VillaProjectsAdmin({ token }) {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('amenities', { ...EMPTY_AMENITY })} className="text-sm font-medium text-accent">Add amenity</button>
+            <button type="button" onClick={() => addArrayRow('amenities', { ...EMPTY_AMENITY })} className="text-sm text-accent">Add amenity</button>
           </div>
         );
       case 'availability':
@@ -1458,7 +1439,7 @@ function VillaProjectsAdmin({ token }) {
                 <button type="button" onClick={() => removeArrayRow('locationAdvantages', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm font-medium text-accent">Add location advantage</button>
+            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button>
           </div>
         );
       case 'review':
@@ -1468,12 +1449,12 @@ function VillaProjectsAdmin({ token }) {
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Project</p>
-                <p className="mt-1 text-primary font-semibold">{form.name || 'Unnamed villa'}</p>
+                <p className="mt-1 text-primary">{form.name || 'Unnamed villa'}</p>
                 <p>{form.location || 'No location set'}</p>
               </div>
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Status</p>
-                <p className="mt-1 text-primary font-semibold">{form.status}</p>
+                <p className="mt-1 text-primary">{form.status}</p>
                 <p>{form.slug || 'Slug will be generated from name'}</p>
               </div>
             </div>
@@ -1494,13 +1475,13 @@ function VillaProjectsAdmin({ token }) {
     <div className="mt-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-serif text-2xl text-primary">Villa Projects</h3>
+          <h3 className="text-2xl text-primary">Villa Projects</h3>
         </div>
         {!showForm ? (
           <button
             type="button"
             onClick={openNewForm}
-            className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm font-medium hover:bg-opacity-90"
+            className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
           >
             Add New Villa
           </button>
@@ -1511,12 +1492,12 @@ function VillaProjectsAdmin({ token }) {
         <form onSubmit={submitVilla} onKeyDown={handleFormKeyDown} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="font-serif text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>            </div>
-            <button type="button" onClick={closeForm} className="text-sm text-accent font-medium">Close</button>
+              <h3 className="text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>            </div>
+            <button type="button" onClick={closeForm} className="text-sm text-accent">Close</button>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {WIZARD_STEPS.map((step, index) => (
+            {visibleSteps.map((step, index) => (
               <button
                 key={step.id}
                 type="button"
@@ -1528,29 +1509,34 @@ function VillaProjectsAdmin({ token }) {
                   setActiveStep(index);
                 }}
                 disabled={index > 0 && !isBasicComplete}
-                className={`rounded-full px-3 py-2 text-xs font-medium transition-colors ${
-                  activeStep === index
+                className={`rounded-full px-3 py-2 text-xs transition-colors ${activeStep === index
                     ? 'bg-[#C6A769] text-white'
                     : index > 0 && !isBasicComplete
                       ? 'bg-white text-primary border border-gray-200 opacity-45 cursor-not-allowed'
                       : 'bg-white text-primary border border-gray-200'
-                }`}
+                  }`}
               >
                 {index + 1}. {step.title}
               </button>
             ))}
           </div>
 
-          {!isBasicComplete ? (
+          {!isBasicComplete && !isBasicOnly ? (
             <p className="text-sm text-textGrey">
               Complete the Basic Data section to unlock the remaining steps.
             </p>
           ) : null}
 
+          {isBasicOnly ? (
+            <p className="text-sm text-textGrey">
+              This villa is marked as upcoming, so only Basic Data is required.
+            </p>
+          ) : null}
+
           <div className="rounded-2xl bg-white border border-gray-200 p-4 sm:p-6">
             <div className="mb-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Step {activeStep + 1}</p>
-              <h4 className="font-serif text-2xl text-primary mt-1">{currentStep.title}</h4>
+              <p className="text-xs uppercase tracking-[0.2em] text-accent">Step {activeStep + 1}</p>
+              <h4 className="text-2xl text-primary mt-1">{currentStep.title}</h4>
               <p className="text-sm text-textGrey mt-1">{currentStep.helper}</p>
             </div>
 
@@ -1568,8 +1554,8 @@ function VillaProjectsAdmin({ token }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveStep((previous) => Math.min(WIZARD_STEPS.length - 1, previous + 1))}
-                  disabled={activeStep === WIZARD_STEPS.length - 1 || (!isBasicComplete && activeStep === 0)}
+                  onClick={() => setActiveStep((previous) => Math.min(visibleSteps.length - 1, previous + 1))}
+                  disabled={visibleSteps.length === 1 || activeStep === visibleSteps.length - 1 || (!isBasicComplete && activeStep === 0)}
                   className="px-4 py-2 rounded-luxury border border-gray-300 text-sm text-textGrey disabled:opacity-50"
                 >
                   Next
@@ -1579,10 +1565,9 @@ function VillaProjectsAdmin({ token }) {
               <button
                 type="submit"
                 disabled={isSaving}
-                data-submit-mode="saveView"
-                className="bg-primary text-white px-6 py-3 rounded-luxury font-medium hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                className="bg-primary text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
               >
-                {isSaving ? 'Saving...' : 'Save & View'}
+                {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -1597,19 +1582,19 @@ function VillaProjectsAdmin({ token }) {
         <table className="w-full min-w-[980px] border-collapse">
           <thead>
             <tr className="bg-bgLight text-left">
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Villa</th>
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Status</th>
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Location</th>
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Slug</th>
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Updated</th>
-              <th className="px-4 py-3 text-sm font-semibold text-primary">Actions</th>
+              <th className="px-4 py-3 text-sm text-primary">Villa</th>
+              <th className="px-4 py-3 text-sm text-primary">Status</th>
+              <th className="px-4 py-3 text-sm text-primary">Location</th>
+              <th className="px-4 py-3 text-sm text-primary">Slug</th>
+              <th className="px-4 py-3 text-sm text-primary">Updated</th>
+              <th className="px-4 py-3 text-sm text-primary">Actions</th>
             </tr>
           </thead>
           <tbody>
             {villas.map((villa) => (
               <tr key={villa.id} className="border-b border-gray-100">
                 <td className="px-4 py-3 text-sm text-primary">
-                  <p className="font-medium">{villa.name}</p>
+                  <p>{villa.name}</p>
                   <p className="text-xs text-textGrey">{villa.acres || '-'} land</p>
                 </td>
                 <td className="px-4 py-3 text-sm text-textGrey capitalize">{villa.status || '-'}</td>
@@ -1618,9 +1603,8 @@ function VillaProjectsAdmin({ token }) {
                 <td className="px-4 py-3 text-sm text-textGrey">{formatDateTime(villa.updatedAt || villa.createdAt)}</td>
                 <td className="px-4 py-3 text-sm">
                   <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => editVilla(villa)} className="text-sm text-accent font-medium">Edit</button>
-                    <a href={`/villa/${villa.slug || villa.id}`} target="_blank" rel="noreferrer" className="text-sm text-primary font-medium">View</a>
-                    <button type="button" onClick={() => deleteVilla(villa.id)} disabled={deletingVillaId === villa.id} className="text-sm text-red-600 font-medium disabled:opacity-60">
+                    <button type="button" onClick={() => editVilla(villa)} className="text-sm text-accent">Edit</button>
+                    <button type="button" onClick={() => deleteVilla(villa.id)} disabled={deletingVillaId === villa.id} className="text-sm text-red-600 disabled:opacity-60">
                       {deletingVillaId === villa.id ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>

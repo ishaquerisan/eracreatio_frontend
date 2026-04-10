@@ -167,17 +167,6 @@ const Home = () => {
                     <span><strong>{project.landArea}</strong> Land</span>
                     <span><strong>{project.units}</strong> Units</span>
                   </div>
-
-                  <Link
-                    to={project.status.toLowerCase() === 'ongoing' ? `/villa/${project.slug || project.id}` : '#'}
-                    className={`block w-full text-center py-2 md:py-3 rounded-sm font-medium text-xs md:text-base transition-colors ${
-                      project.status.toLowerCase() === 'ongoing' 
-                      ? 'bg-primary text-white hover:bg-accent' 
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    {project.status.toLowerCase() === 'ongoing' ? 'View Details' : 'Coming Soon'}
-                  </Link>
                 </div>
               </motion.div>
             ))}
