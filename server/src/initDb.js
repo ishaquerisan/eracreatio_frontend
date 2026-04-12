@@ -185,6 +185,11 @@ async function initDb() {
       await pool.query(sql);
     }
 
+    await pool.query(
+      `ALTER TABLE villas
+       MODIFY status ENUM('draft', 'ongoing', 'upcoming', 'completed') NOT NULL DEFAULT 'draft'`,
+    );
+
     console.log("🚀 Database schema verified/initialized.");
     
     // Seed the admin user

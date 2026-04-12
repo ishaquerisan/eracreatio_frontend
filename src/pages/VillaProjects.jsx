@@ -164,12 +164,15 @@ const VillaProjects = () => {
                     </div>
                   </div>
 
-                  <Link
-                    to={`/villa/${project.slug || project.id}`}
-                    className="block w-full text-center bg-[#121212] text-white py-3.5 rounded-full hover:bg-[#1f1f1f] transition-colors font-semibold text-[15px]"
-                  >
-                    View Details
-                  </Link>
+                  {project.status === 'ongoing' || project.status === 'completed' ? (
+                    <Link
+                      to={`/villa/${project.slug || project.id}`}
+                      className="block w-full text-center bg-[#121212] text-white py-3.5 rounded-full hover:bg-[#1f1f1f] transition-colors font-semibold text-[15px]"
+                    >
+                      View Details
+                    </Link>
+                  ) : null}
+
                 </div>
               </motion.div>
             ))}

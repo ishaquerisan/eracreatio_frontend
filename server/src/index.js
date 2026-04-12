@@ -27,7 +27,7 @@ const VILLA_UPLOADS_DIR = path.join(UPLOADS_DIR, 'villas');
 const BLOG_UPLOADS_DIR = path.join(UPLOADS_DIR, 'blogs');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
-const VILLA_STATUSES = new Set(['draft', 'ongoing', 'completed']);
+const VILLA_STATUSES = new Set(['draft', 'ongoing', 'upcoming', 'completed']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
