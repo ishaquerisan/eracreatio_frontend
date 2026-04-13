@@ -52,6 +52,7 @@ const emptyProject = {
   totalVillas: '',
   configuration: '',
   price: '',
+  bannerImage: '',
   brochurePdfUrl: '',
   walkthroughVideoUrl: '',
   availabilityChartPdfUrl: '',
@@ -94,6 +95,25 @@ function mergeVillaProject(baseProject, nextProject) {
   mergedProject.otherCharges = nextProject?.otherCharges || baseProject.otherCharges || '';
 
   return mergedProject;
+}
+
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
+function getHeroImage(project) {
+  return project?.bannerImage || project?.image || project?.images?.exterior?.[0] || '';
+}
+
+function getExteriorGalleryImages(project) {
+  const exteriorImages = Array.isArray(project?.images?.exterior) ? project.images.exterior.filter(Boolean) : [];
+  const bannerCandidates = [project?.bannerImage, project?.image].filter(Boolean);
+
+  return exteriorImages.filter((imageUrl) => !bannerCandidates.includes(imageUrl));
+}
+
+function getInteriorGalleryImages(project) {
+  return Array.isArray(project?.images?.interior) ? project.images.interior.filter(Boolean) : [];
 }
 
 /* ── Exterior Slider ── */
@@ -242,6 +262,23 @@ const EraEmerald = () => {
   const [project, setProject] = useState(emptyProject);
   const [loadError, setLoadError] = useState('');
   const [showPopup, setShowPopup] = useState(false);
+  const heroImage = getHeroImage(project);
+  const exteriorImages = getExteriorGalleryImages(project);
+  const interiorImages = getInteriorGalleryImages(project);
+  const highlights = Array.isArray(project.highlights) ? project.highlights.filter((item) => Boolean(normalizeText(item))) : [];
+  const amenities = Array.isArray(project.amenities)
+    ? project.amenities.filter((item) => Boolean(normalizeText(item?.title) || normalizeText(item?.desc) || normalizeText(item?.icon)))
+    : [];
+  const locationAdvantages = Array.isArray(project.locationAdvantages)
+    ? project.locationAdvantages.filter((item) => Boolean(normalizeText(item)))
+    : [];
+  const showAvailabilityChart = Boolean(normalizeText(project.availabilityChartPdfUrl));
+  const showLocationLegal = Boolean(
+    normalizeText(project.mapLocationUrl)
+    || normalizeText(project.rera)
+    || normalizeText(project.otherCharges)
+    || locationAdvantages.length > 0,
+  );
 
   const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(`Hi! I am interested in ${project.name || ''}.`)}`;
 
@@ -296,8 +333,10 @@ const EraEmerald = () => {
 
       {/* 1 ── HERO */}
       <section className="relative min-h-[75vh] sm:min-h-screen flex items-end pb-16 sm:pb-24">
-        <div className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${project.images.exterior[0]})` }}>
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-primary"
+          style={heroImage ? { backgroundImage: `url(${heroImage})` } : undefined}
+        >
           <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/50 to-black/20" />
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-32">
@@ -313,13 +352,11 @@ const EraEmerald = () => {
             <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">{project.description}</p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link to="/contact" className="inline-block bg-accent text-white px-7 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-center text-sm sm:text-base">Book a Site Visit</Link>
-              {project.brochurePdfUrl ? (
+              {normalizeText(project.brochurePdfUrl) ? (
                 <a href={project.brochurePdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base">
                   <FaDownload /> Download Brochure
                 </a>
-              ) : (
-                <button className="inline-flex items-center justify-center gap-2 border-2 border-white text-white px-7 py-3.5 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base"><FaDownload /> Download Brochure</button>
-              )}
+              ) : null}
             </div>
           </motion.div>
         </div>
@@ -355,69 +392,64 @@ const EraEmerald = () => {
       </section>
 
       {/* 3 ── EXTERIOR GALLERY */}
-      <section>
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
-          <SH label="Gallery" title="Exterior Views" />
-        </div>
-        <ExteriorSlider project={project} />
-      </section>
+      {exteriorImages.length > 0 ? (
+        <section>
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+            <SH label="Gallery" title="Exterior Views" />
+          </div>
+          <ExteriorSlider project={{ ...project, images: { ...project.images, exterior: exteriorImages } }} />
+        </section>
+      ) : null}
 
       {/* 4 ── INTERIOR GALLERY */}
-      <section className="py-16 sm:py-20 bg-bgLight">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Inside Your Home" title="Interior Spaces" />
-          <InteriorGallery project={project} />
-        </div>
-      </section>
+      {interiorImages.length > 0 ? (
+        <section className="py-16 sm:py-20 bg-bgLight">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Inside Your Home" title="Interior Spaces" />
+            <InteriorGallery project={{ ...project, images: { ...project.images, interior: interiorImages } }} />
+          </div>
+        </section>
+      ) : null}
 
       {/* 5 ── VIDEO */}
-      <section className="py-16 sm:py-20 bg-primary">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Walkthrough" title={`Experience ${project.name}`} light />
-          <div className="max-w-4xl mx-auto">
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-2xl">
-              {project.walkthroughVideoUrl ? (
+      {normalizeText(project.walkthroughVideoUrl) ? (
+        <section className="py-16 sm:py-20 bg-primary">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Walkthrough" title={`Experience ${project.name}`} light />
+            <div className="max-w-4xl mx-auto">
+              <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-2xl">
                 <video
                   controls
                   playsInline
                   preload="metadata"
-                  poster={project.images.exterior[1] || project.images.exterior[0] || ''}
+                  poster={project.images.exterior[1] || project.images.exterior[0] || heroImage || ''}
                   className="h-full w-full object-cover"
                 >
                   <source src={project.walkthroughVideoUrl} />
                 </video>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-black">
-                  <div className="absolute inset-0 bg-cover bg-center opacity-35" style={{ backgroundImage: project.images.exterior[1] || project.images.exterior[0] ? `url(${project.images.exterior[1] || project.images.exterior[0]})` : 'none' }} />
-                  <div className="relative z-10 text-center">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-accent rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl">
-                      <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                    </div>
-                    <p className="text-white font-medium text-sm sm:text-base">Watch Drone Walkthrough</p>
-                    <p className="text-gray-400 text-xs sm:text-sm mt-1">Video coming soon</p>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 6 ── PROJECT HIGHLIGHTS */}
-      <section className="py-16 sm:py-20 bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Why This Villa" title="Project Highlights" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto">
-            {project.highlights.map((h, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                className="flex items-start gap-3 bg-bgLight rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
-                <FaStar className="text-accent text-sm mt-1.5 flex-shrink-0" />
-                <span className="text-primary font-medium text-sm sm:text-base">{h}</span>
-              </motion.div>
-            ))}
+      {highlights.length > 0 ? (
+        <section className="py-16 sm:py-20 bg-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Why This Villa" title="Project Highlights" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto">
+              {highlights.map((highlight, index) => (
+                <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.08 }}
+                  className="flex items-start gap-3 bg-bgLight rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+                  <FaStar className="text-accent text-sm mt-1.5 flex-shrink-0" />
+                  <span className="text-primary font-medium text-sm sm:text-base">{highlight}</span>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 7 ── PROJECT DETAILS TABLE */}
       <section className="py-16 sm:py-20 bg-bgLight">
@@ -444,26 +476,28 @@ const EraEmerald = () => {
       </section>
 
       {/* 8 ── AMENITIES */}
-      <section className="py-16 sm:py-20 bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Lifestyle Features" title="Amenities & Features" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {project.amenities.map((a, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (i % 6) * 0.07 }}
-                className="flex gap-4 bg-bgLight rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow group">
-                {(() => {
-                  const AmenityIcon = amenityIconMap[a.icon] || FaCheck;
-                  return <AmenityIcon className="text-2xl sm:text-3xl text-accent flex-shrink-0 group-hover:scale-110 transition-transform" />;
-                })()}
-                <div>
-                  <h4 className="font-semibold text-primary text-sm sm:text-base mb-1">{a.title}</h4>
-                  <p className="text-textGrey text-xs sm:text-sm leading-relaxed">{a.desc}</p>
-                </div>
-              </motion.div>
-            ))}
+      {amenities.length > 0 ? (
+        <section className="py-16 sm:py-20 bg-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Lifestyle Features" title="Amenities & Features" />
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+              {amenities.map((amenity, index) => (
+                <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: (index % 6) * 0.07 }}
+                  className="flex gap-4 bg-bgLight rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:shadow-md transition-shadow group">
+                  {(() => {
+                    const AmenityIcon = amenityIconMap[amenity.icon] || FaCheck;
+                    return <AmenityIcon className="text-2xl sm:text-3xl text-accent flex-shrink-0 group-hover:scale-110 transition-transform" />;
+                  })()}
+                  <div>
+                    <h4 className="font-semibold text-primary text-sm sm:text-base mb-1">{amenity.title}</h4>
+                    <p className="text-textGrey text-xs sm:text-sm leading-relaxed">{amenity.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 9 ── ENGINEERING & QUALITY */}
       <section className="py-16 sm:py-20 bg-primary text-white">
@@ -483,78 +517,77 @@ const EraEmerald = () => {
       </section>
 
       {/* 10 ── AVAILABILITY CHART */}
-      <section className="py-16 sm:py-20 bg-bgLight">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Unit Status" title="Availability Chart" />
-          <AvailabilityPreview pdfUrl={project.availabilityChartPdfUrl} />
-          <div className="text-center mt-8">
-            {project.availabilityChartPdfUrl ? (
+      {showAvailabilityChart ? (
+        <section className="py-16 sm:py-20 bg-bgLight">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Unit Status" title="Availability Chart" />
+            <AvailabilityPreview pdfUrl={project.availabilityChartPdfUrl} />
+            <div className="text-center mt-8">
               <a href={project.availabilityChartPdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
                 <FaDownload /> Download Full Availability Chart
               </a>
-            ) : (
-              <button className="inline-flex items-center gap-2 bg-accent text-white px-8 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-sm sm:text-base shadow-lg">
-                <FaDownload /> Download Full Availability Chart
-              </button>
-            )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 11 ── LOCATION & LEGAL */}
-      <section className="py-16 sm:py-20 bg-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <SH label="Find Us" title="Location & Legal" />
-          <div className="grid lg:grid-cols-5 gap-8 lg:gap-10">
-            {/* Map — takes 3 cols */}
-            <div className="lg:col-span-3">
-              <div className="rounded-2xl overflow-hidden shadow-xl bg-gray-100 h-64 sm:h-80 lg:h-full min-h-[300px] flex items-center justify-center border border-gray-200">
-                <div className="text-center text-textGrey p-6">
-                  <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
-                  <p className="font-semibold text-primary text-base mb-1">Google Map</p>
-                  <p className="text-sm text-textGrey">{project.location || ''}</p>
-                  {project.mapLocationUrl ? (
-                    <a href={project.mapLocationUrl} target="_blank" rel="noopener noreferrer"
-                      className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
-                      Open in Maps
-                    </a>
-                  ) : null}
+      {showLocationLegal ? (
+        <section className="py-16 sm:py-20 bg-white">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <SH label="Find Us" title="Location & Legal" />
+            <div className="grid lg:grid-cols-5 gap-8 lg:gap-10">
+              <div className="lg:col-span-3">
+                <div className="rounded-2xl overflow-hidden shadow-xl bg-gray-100 h-64 sm:h-80 lg:h-full min-h-[300px] flex items-center justify-center border border-gray-200">
+                  <div className="text-center text-textGrey p-6">
+                    <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
+                    <p className="font-semibold text-primary text-base mb-1">Google Map</p>
+                    <p className="text-sm text-textGrey">{project.location || ''}</p>
+                    {normalizeText(project.mapLocationUrl) ? (
+                      <a href={project.mapLocationUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
+                        Open in Maps
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
-            {/* Right panel — takes 2 cols */}
-            <div className="lg:col-span-2 space-y-5">
-              {/* QR Codes */}
-              <div className="grid grid-cols-2 gap-4">
-                {qrItems.map((qr, i) => (
-                  <div key={i} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100"><qr.icon className="text-accent" /></div>
-                    <p className="text-xs font-semibold text-primary">{qr.label}</p>
-                    <p className="text-xs text-textGrey mt-0.5">{qr.sub}</p>
+              <div className="lg:col-span-2 space-y-5">
+                {qrItems.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    {qrItems.map((qr, i) => (
+                      <div key={i} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100"><qr.icon className="text-accent" /></div>
+                        <p className="text-xs font-semibold text-primary">{qr.label}</p>
+                        <p className="text-xs text-textGrey mt-0.5">{qr.sub}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {/* RERA */}
-              <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
-                <p className="text-xs text-textGrey uppercase tracking-wide mb-1">RERA Registration</p>
-                <p className="text-primary font-semibold text-sm sm:text-base">{project.rera || ''}</p>
-              </div>
-              {/* Location Advantages */}
-              <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
-                <h4 className="font-serif text-base sm:text-lg font-bold text-primary mb-4">Location Advantages</h4>
-                <ul className="space-y-2.5">
-                  {project.locationAdvantages.map((adv, i) => (
-                    <li key={i} className="flex items-center gap-3 text-textGrey text-sm">
-                      <span className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center text-xs flex-shrink-0"><FaCheck /></span>
-                      {adv}
-                    </li>
-                  ))}
-                </ul>
+                ) : null}
+                {normalizeText(project.rera) ? (
+                  <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
+                    <p className="text-xs text-textGrey uppercase tracking-wide mb-1">RERA Registration</p>
+                    <p className="text-primary font-semibold text-sm sm:text-base">{project.rera || ''}</p>
+                  </div>
+                ) : null}
+                {locationAdvantages.length > 0 ? (
+                  <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
+                    <h4 className="font-serif text-base sm:text-lg font-bold text-primary mb-4">Location Advantages</h4>
+                    <ul className="space-y-2.5">
+                      {locationAdvantages.map((advantage, i) => (
+                        <li key={i} className="flex items-center gap-3 text-textGrey text-sm">
+                          <span className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center text-xs flex-shrink-0"><FaCheck /></span>
+                          {advantage}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* 12 ── FINAL CTA */}
       <section className="relative py-20 sm:py-28 overflow-hidden">

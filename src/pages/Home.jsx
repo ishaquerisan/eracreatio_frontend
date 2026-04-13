@@ -9,6 +9,13 @@ import { getPublicVillas } from '../services/api';
 
 const Home = () => {
   const [featuredProjects, setFeaturedProjects] = useState([]);
+  const [activeTab, setActiveTab] = useState('ongoing');
+
+  const statusTabs = [
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'ongoing', label: 'Ongoing' },
+    { key: 'completed', label: 'Completed' },
+  ];
 
   useEffect(() => {
     let isMounted = true;
@@ -29,10 +36,8 @@ const Home = () => {
           image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
         }));
 
-        const nextFeatured = mappedProjects.filter((villa) => ['ongoing', 'upcoming'].includes(villa.status.toLowerCase()));
-
         if (isMounted) {
-          setFeaturedProjects(nextFeatured);
+          setFeaturedProjects(mappedProjects);
         }
       } catch (_error) {
         if (!isMounted) {
@@ -47,6 +52,9 @@ const Home = () => {
       isMounted = false;
     };
   }, []);
+
+  const visibleProjects = featuredProjects.filter((project) => project.status.toLowerCase() === activeTab);
+  const featuredProjectsToShow = visibleProjects.slice(0, 3);
 
   const whyChooseUs = [
     { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing.' },
@@ -133,44 +141,85 @@ const Home = () => {
             </p>
           </motion.div>
 
-          {/* Grid: 1 column on mobile, 2 on tablet+ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-8 max-w-5xl mx-auto">
-            {featuredProjects.map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all"
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-8 sm:mb-12">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-5 sm:px-7 py-2.5 sm:py-3 rounded-full font-medium capitalize transition-all text-sm sm:text-base ${
+                  activeTab === tab.key
+                    ? 'bg-accent text-white'
+                    : 'bg-white text-primary border border-gray-200 hover:border-accent/40 hover:text-accent'
+                }`}
               >
-                <div className="relative h-48 md:h-64 overflow-hidden">
-                  <img
-                    src={project.image}
-                    alt={project.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span className="px-2 py-1 rounded-sm text-[10px] md:text-xs font-bold bg-accent text-white uppercase tracking-wider">
-                      {project.status}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="p-4 md:p-6">
-                  <h3 className="font-serif text-lg md:text-2xl font-bold text-primary mb-1">{project.name}</h3>
-                  <p className="text-textGrey text-xs md:text-base mb-3 flex items-center opacity-70">
-                    <FaLocationDot className="mr-1 text-accent" />{project.location}
-                  </p>
-                  
-                  <div className="flex justify-between text-[10px] md:text-sm text-textGrey border-t pt-3 mb-4">
-                    <span><strong>{project.landArea}</strong> Land</span>
-                    <span><strong>{project.units}</strong> Units</span>
-                  </div>
-                </div>
-              </motion.div>
+                {tab.label}
+              </button>
             ))}
           </div>
+
+          {featuredProjectsToShow.length > 0 ? (
+            <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8 max-w-6xl mx-auto">
+              {featuredProjectsToShow.map((project, index) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all"
+                >
+                  <div className="relative h-48 md:h-64 overflow-hidden">
+                    <img
+                      src={project.image}
+                      alt={project.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute top-2 right-2">
+                      <span className="px-2 py-1 rounded-sm text-[10px] md:text-xs font-bold bg-accent text-white uppercase tracking-wider">
+                        {project.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 md:p-6">
+                    <h3 className="font-serif text-lg md:text-2xl font-bold text-primary mb-1">{project.name}</h3>
+                    <p className="text-textGrey text-xs md:text-base mb-3 flex items-center opacity-70">
+                      <FaLocationDot className="mr-1 text-accent" />{project.location}
+                    </p>
+
+                    <div className="flex justify-between text-[10px] md:text-sm text-textGrey border-t pt-3 mb-4">
+                      <span><strong>{project.landArea}</strong> Land</span>
+                      <span><strong>{project.units}</strong> Units</span>
+                    </div>
+
+                    {(project.status.toLowerCase() === 'ongoing' || project.status.toLowerCase() === 'completed') ? (
+                      <Link
+                        to={`/villa/${project.slug || project.id}`}
+                        className="inline-flex w-full items-center justify-center rounded-full bg-[#121212] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1f1f1f]"
+                      >
+                        View Details
+                      </Link>
+                    ) : null}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-8 md:mt-10 text-center">
+              <Link
+                to="/villa-projects"
+                className="inline-flex items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-semibold text-primary transition-colors hover:border-accent hover:text-accent"
+              >
+                Show All
+              </Link>
+            </div>
+            </>
+          ) : (
+            <div className="max-w-2xl mx-auto rounded-2xl border border-dashed border-gray-300 bg-white/70 px-6 py-10 text-center text-textGrey">
+              No {activeTab} villa projects available right now.
+            </div>
+          )}
         </div>
       </section>
       )}
