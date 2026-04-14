@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import { Link } from 'react-router-dom';
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {
   createAdminVilla,
@@ -813,6 +814,7 @@ function VillaProjectsAdmin({ token }) {
     setIsSaving(true);
 
     try {
+      const nextStepIndex = getNextStepIndex(activeStep);
       const payload = new FormData();
       payload.append('slug', form.slug.trim());
       payload.append('name', form.name.trim());
@@ -892,6 +894,10 @@ function VillaProjectsAdmin({ token }) {
         text: form.id ? 'Villa updated successfully.' : 'Villa created successfully.',
       });
 
+      if (!isBasicOnly && nextStepIndex > activeStep) {
+        setActiveStep(nextStepIndex);
+      }
+
       const data = await getAdminVillas(token);
       setVillas(data.villas || []);
     } catch (error) {
@@ -933,6 +939,7 @@ function VillaProjectsAdmin({ token }) {
   const isBasicComplete = isEditMode || isBasicVillaFormComplete(form);
   const isBasicOnly = isBasicOnlyVilla(form);
   const visibleSteps = isBasicOnly ? WIZARD_STEPS.slice(0, 1) : WIZARD_STEPS;
+  const saveButtonLabel = isBasicOnly || activeStep === visibleSteps.length - 1 ? 'Save' : 'Save and Next';
 
   useEffect(() => {
     if (isBasicOnly && activeStep !== 0) {
@@ -1567,7 +1574,7 @@ function VillaProjectsAdmin({ token }) {
                 disabled={isSaving}
                 className="bg-primary text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {isSaving ? 'Saving...' : saveButtonLabel}
               </button>
             </div>
           </div>
@@ -1603,6 +1610,9 @@ function VillaProjectsAdmin({ token }) {
                 <td className="px-4 py-3 text-sm text-textGrey">{formatDateTime(villa.updatedAt || villa.createdAt)}</td>
                 <td className="px-4 py-3 text-sm">
                   <div className="flex items-center gap-3">
+                    <Link to={`/villa/${villa.slug || villa.id}`} className="text-sm text-primary">
+                      View
+                    </Link>
                     <button type="button" onClick={() => editVilla(villa)} className="text-sm text-accent">Edit</button>
                     <button type="button" onClick={() => deleteVilla(villa.id)} disabled={deletingVillaId === villa.id} className="text-sm text-red-600 disabled:opacity-60">
                       {deletingVillaId === villa.id ? 'Deleting...' : 'Delete'}
