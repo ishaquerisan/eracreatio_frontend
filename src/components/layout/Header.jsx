@@ -21,8 +21,8 @@ const Header = () => {
     { name: 'Villa Projects', path: '/villa-projects', hasDropdown: true },
     { name: 'Independent Residences', path: '/independent-residences' },
     { name: 'Commercial Developments', path: '/commercial-projects' },
-    { name: 'About Us', path: '/about' },
     { name: 'Knowledge Hub', path: '/blog' },
+    { name: 'About Us', path: '/about' },
     { name: 'Contact Us', path: '/contact' }
   ];
 
@@ -41,11 +41,11 @@ const Header = () => {
       <div className="container mx-auto px-4 lg:px-8">
         <div className="flex items-center justify-between h-20 lg:h-24">
           {/* Logo - Scaled down for lg to free up horizontal space, removed mt */}
-          <Link to="/" className="flex items-center shrink-0">
+          <Link to="/" className="flex items-center shrink-0  xl:mr-6 ">
             <img
-              src="/logo.svg"
+              src="/logo.png"
               alt="Era Creatio Developers LLP"
-              className="h-10 lg:h-10 xl:h-14 w-auto transition-all"
+              className="h-[9vh] lg:h-[5vh] xl:h-[9vh] w-auto transition-all"
             />
           </Link>
 
@@ -69,7 +69,7 @@ const Header = () => {
           {/* CTA Button */}
           <Link
             to="/contact"
-            className="hidden lg:block bg-accent text-white px-4 py-2 text-sm xl:px-6 xl:py-3 xl:text-base whitespace-nowrap rounded-luxury hover:bg-opacity-90 transition-all font-medium shrink-0"
+            className="hidden lg:block xl:ml-[5vh] bg-accent text-white px-4 py-2 text-sm xl:px-6 xl:py-3 xl:text-base whitespace-nowrap rounded-luxury hover:bg-opacity-90 transition-all font-medium shrink-0"
           >
             Book a Site Visit
           </Link>
