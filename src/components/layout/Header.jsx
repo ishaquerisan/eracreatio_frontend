@@ -21,8 +21,8 @@ const Header = () => {
     { name: 'Villa Projects', path: '/villa-projects', hasDropdown: true },
     { name: 'Independent Residences', path: '/independent-residences' },
     { name: 'Commercial Developments', path: '/commercial-projects' },
-    { name: 'About Us', path: '/about' },
     { name: 'Knowledge Hub', path: '/blog' },
+    { name: 'About Us', path: '/about' },
     { name: 'Contact Us', path: '/contact' }
   ];
 
