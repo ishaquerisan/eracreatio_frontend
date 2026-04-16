@@ -124,9 +124,9 @@ function VillaNotFoundState() {
           Villa not found
         </span>
         <h1 className="mt-6 font-serif text-3xl sm:text-4xl font-bold text-primary">Villa not found</h1>
-        <p className="mt-4 text-sm sm:text-base text-textGrey leading-relaxed">
+        {/* <p className="mt-4 text-sm sm:text-base text-textGrey leading-relaxed">
           The villa slug or id you opened does not exist anymore.
-        </p>
+        </p> */}
         <div className="mt-8">
           <Link
             to="/villa-projects"

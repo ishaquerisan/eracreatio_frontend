@@ -374,6 +374,22 @@ function createSafeVillaSlug(slugValue, fallbackValue) {
   return /^\d+$/.test(baseSlug) ? `villa-${baseSlug}` : baseSlug;
 }
 
+function isVillaSlugTaken(slugValue, villas, currentVillaId = null) {
+  const normalizedSlug = normalizeSlugValue(slugValue);
+
+  if (!normalizedSlug) {
+    return false;
+  }
+
+  return (villas || []).some((villa) => {
+    if (currentVillaId !== null && String(villa.id) === String(currentVillaId)) {
+      return false;
+    }
+
+    return normalizeSlugValue(villa.slug) === normalizedSlug;
+  });
+}
+
 function createEmptyVillaForm() {
   return {
     id: null,
@@ -959,6 +975,8 @@ function VillaProjectsAdmin({ token }) {
   const isBasicOnly = isBasicOnlyVilla(form);
   const visibleSteps = isBasicOnly ? WIZARD_STEPS.slice(0, 1) : WIZARD_STEPS;
   const saveButtonLabel = isBasicOnly || activeStep === visibleSteps.length - 1 ? 'Save' : 'Save and Next';
+  const effectiveSlug = createSafeVillaSlug(form.slug, form.name);
+  const isSlugDuplicate = isVillaSlugTaken(effectiveSlug, villas, form.id);
 
   useEffect(() => {
     if (isBasicOnly && activeStep !== 0) {
@@ -986,7 +1004,7 @@ function VillaProjectsAdmin({ token }) {
               />
               <input
                 type="text"
-                placeholder="Slug (Project ID)"
+                placeholder="Project ID"
                 value={form.slug}
                 onChange={(event) => setForm((previous) => ({
                   ...previous,
@@ -994,6 +1012,11 @@ function VillaProjectsAdmin({ token }) {
                 }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
+              {isSlugDuplicate ? (
+                <p className="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  This project ID is already in use. A unique version will be saved.
+                </p>
+              ) : null}
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
