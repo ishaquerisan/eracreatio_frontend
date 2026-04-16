@@ -427,7 +427,7 @@ function mapVillaToForm(villa) {
   return {
     ...createEmptyVillaForm(),
     id: villa.id,
-    slug: villa.slug || '',
+    slug: normalizeSlugValue(villa.slug),
     name: villa.name || '',
     location: villa.location || '',
     acres: villa.acres || '',

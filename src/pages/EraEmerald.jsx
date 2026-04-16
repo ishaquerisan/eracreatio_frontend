@@ -116,6 +116,30 @@ function getInteriorGalleryImages(project) {
   return Array.isArray(project?.images?.interior) ? project.images.interior.filter(Boolean) : [];
 }
 
+function VillaNotFoundState() {
+  return (
+    <div className="min-h-screen bg-bgLight flex items-center justify-center px-4 py-24">
+      <div className="max-w-xl w-full rounded-[32px] bg-white border border-gray-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-8 sm:p-10 text-center">
+        <span className="inline-flex items-center rounded-full bg-accent/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+          Villa not found
+        </span>
+        <h1 className="mt-6 font-serif text-3xl sm:text-4xl font-bold text-primary">Villa not found</h1>
+        <p className="mt-4 text-sm sm:text-base text-textGrey leading-relaxed">
+          The villa slug or id you opened does not exist anymore.
+        </p>
+        <div className="mt-8">
+          <Link
+            to="/villa-projects"
+            className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-opacity-90"
+          >
+            View Villa Projects
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Exterior Slider ── */
 const ExteriorSlider = ({ project }) => {
   const [cur, setCur] = useState(0);
@@ -279,6 +303,7 @@ const EraEmerald = () => {
     || normalizeText(project.otherCharges)
     || locationAdvantages.length > 0,
   );
+  const isVillaNotFound = /villa not found/i.test(loadError);
 
   const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(`Hi! I am interested in ${project.name || ''}.`)}`;
 
@@ -286,7 +311,7 @@ const EraEmerald = () => {
     let isMounted = true;
 
     async function loadVilla() {
-      const identifier = villaSlug;
+      const identifier = String(villaSlug || '').trim();
 
       if (!identifier) {
         if (isMounted) {
@@ -326,6 +351,10 @@ const EraEmerald = () => {
     const timer = setTimeout(() => setShowPopup(true), 1200);
     return () => clearTimeout(timer);
   }, []);
+
+  if (isVillaNotFound) {
+    return <VillaNotFoundState />;
+  }
 
   return (
     <div className="overflow-x-hidden">
