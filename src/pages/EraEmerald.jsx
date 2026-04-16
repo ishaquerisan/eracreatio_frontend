@@ -378,7 +378,9 @@ const EraEmerald = () => {
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-3 leading-tight">{project.name}</h1>
             <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2"><FaLocationDot /> {project.location}</p>
             {loadError ? <p className="mb-3 text-sm text-amber-300">{loadError}</p> : null}
-            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">{project.description}</p>
+            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">
+              {project.description}
+            </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link to="/contact" className="inline-block bg-accent text-white px-7 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-center text-sm sm:text-base">Book a Site Visit</Link>
               {normalizeText(project.brochurePdfUrl) ? (
@@ -403,9 +405,11 @@ const EraEmerald = () => {
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
               <SH label={project.overviewTitle ? 'Project Overview' : ''} title={project.overviewTitle || ''} left />
               <div className="space-y-4 text-textGrey text-sm sm:text-base leading-relaxed">
-                <p>{project.overviewDescription || project.description || ''}</p>
-                <p>{project.description || ''}</p>
-                <p>{project.name ? `${project.name} is more than just a collection of homes — it is a refined living experience where comfort, privacy, and long-term value come together for modern families.` : ''}</p>
+                <p className="max-h-[25vh] overflow-y-auto pr-2">
+                  {project.overviewDescription || project.description || ''}
+                </p>
+                {/* <p>{project.description || ''}</p>
+                <p>{project.name }</p> */}
               </div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="grid grid-cols-2 gap-3 sm:gap-4">

@@ -356,6 +356,22 @@ function normalizeArrayValue(value) {
   return [];
 }
 
+function countWords(value) {
+  return String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function limitWords(value, maxWords) {
+  const words = String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return words.slice(0, maxWords).join(' ');
+}
+
 function normalizeSlugValue(value) {
   return String(value || '')
     .toLowerCase()
@@ -977,6 +993,7 @@ function VillaProjectsAdmin({ token }) {
   const saveButtonLabel = isBasicOnly || activeStep === visibleSteps.length - 1 ? 'Save' : 'Save and Next';
   const effectiveSlug = createSafeVillaSlug(form.slug, form.name);
   const isSlugDuplicate = isVillaSlugTaken(effectiveSlug, villas, form.id);
+  const descriptionWordCount = countWords(form.description);
 
   useEffect(() => {
     if (isBasicOnly && activeStep !== 0) {
@@ -1127,10 +1144,25 @@ function VillaProjectsAdmin({ token }) {
             <textarea
               placeholder="Description"
               value={form.description}
-              onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+
+                setForm((previous) => ({
+                  ...previous,
+                  description: countWords(nextValue) > 50 ? previous.description : nextValue,
+                }));
+              }}
               rows={4}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
+            <div className="flex flex-col items-end gap-1 text-xs">
+              {descriptionWordCount >= 45 ? (
+                <p className={`font-medium ${descriptionWordCount >= 50 ? 'text-red-600' : 'text-amber-600'}`}>
+                  {descriptionWordCount >= 50 ? 'Word limit reached.' : 'You are close to the 50-word limit.'}
+                </p>
+              ) : null}
+              <p className="text-textGrey">{descriptionWordCount} / 50 words</p>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
                 type="text"
