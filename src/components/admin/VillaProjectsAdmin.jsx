@@ -1544,7 +1544,12 @@ function VillaProjectsAdmin({ token }) {
         <form onSubmit={submitVilla} onKeyDown={handleFormKeyDown} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>            </div>
+              <h3 className="text-2xl text-primary">
+                {form.id
+                  ? `Edit ${form.name.trim() ? `${form.name.trim()}` : 'Villa'}`
+                  : `Create ${form.name.trim() ? `${form.name.trim()}` : 'Villa'}`}
+              </h3>
+            </div>
             <button type="button" onClick={closeForm} className="text-sm text-accent">Close</button>
           </div>
 
