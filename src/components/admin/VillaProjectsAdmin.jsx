@@ -356,6 +356,24 @@ function normalizeArrayValue(value) {
   return [];
 }
 
+function normalizeSlugValue(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function createSafeVillaSlug(slugValue, fallbackValue) {
+  const normalizedSlug = normalizeSlugValue(slugValue);
+  const normalizedFallback = normalizeSlugValue(fallbackValue);
+  const baseSlug = normalizedSlug || normalizedFallback || `villa-${Date.now()}`;
+
+  return /^\d+$/.test(baseSlug) ? `villa-${baseSlug}` : baseSlug;
+}
+
 function createEmptyVillaForm() {
   return {
     id: null,
@@ -815,8 +833,9 @@ function VillaProjectsAdmin({ token }) {
 
     try {
       const nextStepIndex = getNextStepIndex(activeStep);
+      const safeSlug = createSafeVillaSlug(form.slug, form.name);
       const payload = new FormData();
-      payload.append('slug', form.slug.trim());
+      payload.append('slug', safeSlug);
       payload.append('name', form.name.trim());
       payload.append('location', form.location.trim());
       payload.append('acres', form.acres.trim());
@@ -967,9 +986,12 @@ function VillaProjectsAdmin({ token }) {
               />
               <input
                 type="text"
-                placeholder="Slug (optional)"
+                placeholder="Slug (Project ID)"
                 value={form.slug}
-                onChange={(event) => setForm((previous) => ({ ...previous, slug: event.target.value }))}
+                onChange={(event) => setForm((previous) => ({
+                  ...previous,
+                  slug: normalizeSlugValue(event.target.value),
+                }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -1462,7 +1484,7 @@ function VillaProjectsAdmin({ token }) {
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Status</p>
                 <p className="mt-1 text-primary">{form.status}</p>
-                <p>{form.slug || 'Slug will be generated from name'}</p>
+                <p>{createSafeVillaSlug(form.slug, form.name) || 'Slug will be generated from name'}</p>
               </div>
             </div>
             <div className="rounded-xl bg-white border border-gray-200 p-4">
