@@ -57,6 +57,8 @@ const emptyProject = {
   walkthroughVideoUrl: '',
   availabilityChartPdfUrl: '',
   mapLocationUrl: '',
+  locationScanImageUrl: '',
+  reraScanImageUrl: '',
   rera: '',
   otherCharges: '',
   projectDetails: {},
@@ -93,6 +95,8 @@ function mergeVillaProject(baseProject, nextProject) {
   mergedProject.price = nextProject?.price || nextProject?.startingPrice || baseProject.price || '';
   mergedProject.rera = nextProject?.rera || nextProject?.reraNumber || baseProject.rera || '';
   mergedProject.otherCharges = nextProject?.otherCharges || baseProject.otherCharges || '';
+  mergedProject.locationScanImageUrl = nextProject?.locationScanImageUrl || nextProject?.projectDetails?.locationScanImageUrl || baseProject.locationScanImageUrl || '';
+  mergedProject.reraScanImageUrl = nextProject?.reraScanImageUrl || nextProject?.projectDetails?.reraScanImageUrl || baseProject.reraScanImageUrl || '';
 
   return mergedProject;
 }
@@ -275,11 +279,6 @@ const engineeringItems = [
   { icon: FaShieldHalved, title: 'Seismic Compliance', desc: 'Structures designed to meet seismic zone safety requirements.' },
 ];
 
-const qrItems = [
-  { label: 'Scan for Location', icon: FaLocationDot, sub: 'Google Maps' },
-  { label: 'Scan for RERA', icon: FaLandmark, sub: 'RERA Portal' },
-];
-
 /* ── Main Page ── */
 const EraEmerald = () => {
   const { villaSlug } = useParams();
@@ -301,6 +300,8 @@ const EraEmerald = () => {
     normalizeText(project.mapLocationUrl)
     || normalizeText(project.rera)
     || normalizeText(project.otherCharges)
+    || normalizeText(project.locationScanImageUrl)
+    || normalizeText(project.reraScanImageUrl)
     || locationAdvantages.length > 0,
   );
   const isVillaNotFound = /villa not found/i.test(loadError);
@@ -413,7 +414,14 @@ const EraEmerald = () => {
               </div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="grid grid-cols-2 gap-3 sm:gap-4">
-              {[[project.acres || project.overviewTotalLand || '', 'Total Land'], [project.totalVillas || project.overviewTotalUnits || '', 'Total Units'], [project.configuration || '', 'Configuration'], [project.price || '', 'Starting Price']].map(([v, l], i) => (
+              {[
+                [project.projectDetails?.totalLandArea || project.acres || project.overviewTotalLand || '', 'Total Land'],
+                [project.projectDetails?.totalUnits || project.totalVillas || project.overviewTotalUnits || '', 'Total Units'],
+                [project.projectDetails?.overviewEachPlot || project.overviewEachPlot || '', 'Each Plot (Cent)'],
+                [project.projectDetails?.overviewBuiltupAreaSqFt || project.overviewBuiltupAreaSqFt || '', 'Built-up Area Sq.Ft'],
+                [project.projectDetails?.configuration || project.configuration || '', 'Configuration'],
+                [project.projectDetails?.price || project.price || '', 'Starting Price'],
+              ].map(([v, l], i) => (
                 <div key={i} className="bg-bgLight rounded-xl sm:rounded-2xl p-5 sm:p-6 text-center border border-gray-100 hover:border-accent/30 transition-colors">
                   <div className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-accent mb-1">{v}</div>
                   <div className="text-textGrey text-xs sm:text-sm">{l}</div>
@@ -438,7 +446,7 @@ const EraEmerald = () => {
       {interiorImages.length > 0 ? (
         <section className="py-16 sm:py-20 bg-bgLight">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <SH label="Inside Your Home" title="Interior Spaces" />
+            <SH label="Inside Your Villa" title="Recreational Spaces" />
             <InteriorGallery project={{ ...project, images: { ...project.images, interior: interiorImages } }} />
           </div>
         </section>
@@ -586,17 +594,49 @@ const EraEmerald = () => {
                 </div>
               </div>
               <div className="lg:col-span-2 space-y-5">
-                {qrItems.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    {qrItems.map((qr, i) => (
-                      <div key={i} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100"><qr.icon className="text-accent" /></div>
-                        <p className="text-xs font-semibold text-primary">{qr.label}</p>
-                        <p className="text-xs text-textGrey mt-0.5">{qr.sub}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    {
+                      label: 'Scan for Location',
+                      sub: 'Google Maps',
+                      icon: FaLocationDot,
+                      image: project.locationScanImageUrl,
+                      href: project.mapLocationUrl,
+                    },
+                    {
+                      label: 'Scan for RERA',
+                      sub: 'RERA Portal',
+                      icon: FaLandmark,
+                      image: project.reraScanImageUrl,
+                      href: '',
+                    },
+                  ].map((scan) => {
+                    const ScanIcon = scan.icon;
+
+                    return (
+                      <div key={scan.label} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
+                        {scan.image ? (
+                          <img
+                            src={scan.image}
+                            alt={scan.label}
+                            className="w-full aspect-square object-cover rounded-xl mx-auto mb-3 border border-gray-100 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100">
+                            <ScanIcon className="text-accent" />
+                          </div>
+                        )}
+                        <p className="text-xs font-semibold text-primary">{scan.label}</p>
+                        <p className="text-xs text-textGrey mt-0.5">{scan.sub}</p>
+                        {scan.href ? (
+                          <a href={scan.href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-[11px] font-medium text-accent">
+                            Open link
+                          </a>
+                        ) : null}
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                    );
+                  })}
+                </div>
                 {normalizeText(project.rera) ? (
                   <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
                     <p className="text-xs text-textGrey uppercase tracking-wide mb-1">RERA Registration</p>

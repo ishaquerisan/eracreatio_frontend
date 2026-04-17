@@ -319,6 +319,8 @@ function normalizeVillaPayload(body) {
     projectHighlights: normalizeStringArray(payload.projectHighlights),
     locationAdvantages: normalizeStringArray(payload.locationAdvantages),
     amenities: normalizeAmenityItems(payload.amenities),
+    existingExteriorImages: parseJsonValue(payload.existingExteriorImages, undefined),
+    existingInteriorImages: parseJsonValue(payload.existingInteriorImages, undefined),
   };
 }
 
@@ -335,6 +337,8 @@ function mapVillaRow(row, req) {
   const walkthroughVideoUrl = normalizeStoredImageUrl(req, row.walkthroughVideoUrl);
   const availabilityChartPdfUrl = normalizeStoredImageUrl(req, row.availabilityChartPdfUrl);
   const mapLocationUrl = normalizeTextOrFallback(row.mapLocationUrl, projectDetails.mapLocationUrl || '');
+  const locationScanImageUrl = normalizeStoredImageUrl(req, projectDetails.locationScanImageUrl || '');
+  const reraScanImageUrl = normalizeStoredImageUrl(req, projectDetails.reraScanImageUrl || '');
 
   return {
     id: row.id,
@@ -358,6 +362,8 @@ function mapVillaRow(row, req) {
     walkthroughVideoUrl,
     availabilityChartPdfUrl,
     mapLocationUrl,
+    locationScanImageUrl,
+    reraScanImageUrl,
     otherCharges: row.otherCharges || '',
     reraNumber: row.reraNumber || projectDetails.reraNumber || '',
     projectDetails: {
@@ -370,6 +376,8 @@ function mapVillaRow(row, req) {
       price: projectDetails.price || row.startingPrice || '',
       status: normalizeVillaStatus(projectDetails.status || row.status),
       reraNumber: projectDetails.reraNumber || row.reraNumber || '',
+      locationScanImageUrl,
+      reraScanImageUrl,
     },
     images: {
       exterior: exteriorImages.length > 0 ? exteriorImages : bannerImage ? [bannerImage] : [],
@@ -396,6 +404,8 @@ function getVillaFileUrls(uploadedFiles = {}) {
     brochurePdfUrl: toUrl((uploadedFiles.brochurePdf || [])[0]),
     walkthroughVideoUrl: toUrl((uploadedFiles.walkthroughVideo || [])[0]),
     availabilityChartPdfUrl: toUrl((uploadedFiles.availabilityChartPdf || [])[0]),
+    locationScanImageUrl: toUrl((uploadedFiles.locationScanImage || [])[0]),
+    reraScanImageUrl: toUrl((uploadedFiles.reraScanImage || [])[0]),
     exteriorImages: (uploadedFiles.exteriorImages || []).map((file) => `/uploads/villas/${file.filename}`),
     interiorImages: (uploadedFiles.interiorImages || []).map((file) => `/uploads/villas/${file.filename}`),
   };
@@ -951,6 +961,8 @@ app.post(
     { name: 'brochurePdf', maxCount: 1 },
     { name: 'walkthroughVideo', maxCount: 1 },
     { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'locationScanImage', maxCount: 1 },
+    { name: 'reraScanImage', maxCount: 1 },
     { name: 'exteriorImages', maxCount: 20 },
     { name: 'interiorImages', maxCount: 20 },
   ]),
@@ -961,19 +973,21 @@ app.post(
     const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
     const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
     const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
+    const locationScanImageFile = (uploadedFiles.locationScanImage || [])[0] || null;
+    const reraScanImageFile = (uploadedFiles.reraScanImage || [])[0] || null;
     const exteriorImageFiles = uploadedFiles.exteriorImages || [];
     const interiorImageFiles = uploadedFiles.interiorImages || [];
-    const filesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
+    const filesToProcess = [bannerImageFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
 
     if (!normalizedPayload.name || !normalizedPayload.location) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Name and location are required.' });
     }
 
     try {
       await Promise.all(filesToProcess.map((file) => compressUploadedImage(file)));
     } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(500).json({ message: 'Could not process villa images.' });
     }
 
@@ -982,18 +996,19 @@ app.post(
     try {
       const pool = await getPool();
       const slug = await createUniqueVillaSlug(pool, normalizedPayload.name, normalizedPayload.slug);
-      const projectDetails = normalizedPayload.projectDetails && Object.keys(normalizedPayload.projectDetails).length > 0
-        ? normalizedPayload.projectDetails
-        : {
-            projectName: normalizedPayload.name,
-            location: normalizedPayload.location,
-            totalLandArea: normalizedPayload.acres,
-            totalUnits: normalizedPayload.totalVillas,
-            configuration: normalizedPayload.configuration,
-            price: normalizedPayload.startingPrice,
-            status: normalizedPayload.status,
-            reraNumber: normalizedPayload.reraNumber,
-          };
+      const projectDetails = {
+        ...(normalizedPayload.projectDetails && typeof normalizedPayload.projectDetails === 'object' ? normalizedPayload.projectDetails : {}),
+        projectName: normalizedPayload.name,
+        location: normalizedPayload.location,
+        totalLandArea: normalizedPayload.acres,
+        totalUnits: normalizedPayload.totalVillas,
+        configuration: normalizedPayload.configuration,
+        price: normalizedPayload.startingPrice,
+        status: normalizedPayload.status,
+        reraNumber: normalizedPayload.reraNumber,
+        locationScanImageUrl: fileUrls.locationScanImageUrl || '',
+        reraScanImageUrl: fileUrls.reraScanImageUrl || '',
+      };
 
       const [result] = await pool.execute(
         `INSERT INTO villas
@@ -1086,6 +1101,8 @@ app.put(
     { name: 'brochurePdf', maxCount: 1 },
     { name: 'walkthroughVideo', maxCount: 1 },
     { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'locationScanImage', maxCount: 1 },
+    { name: 'reraScanImage', maxCount: 1 },
     { name: 'exteriorImages', maxCount: 20 },
     { name: 'interiorImages', maxCount: 20 },
   ]),
@@ -1097,11 +1114,13 @@ app.put(
     const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
     const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
     const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
+    const locationScanImageFile = (uploadedFiles.locationScanImage || [])[0] || null;
+    const reraScanImageFile = (uploadedFiles.reraScanImage || [])[0] || null;
     const exteriorImageFiles = uploadedFiles.exteriorImages || [];
     const interiorImageFiles = uploadedFiles.interiorImages || [];
 
     if (!Number.isInteger(villaId) || villaId <= 0) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Invalid villa id.' });
     }
 
@@ -1133,6 +1152,7 @@ app.put(
            amenities,
            availability_chart_pdf_url AS availabilityChartPdfUrl,
            map_location_url AS mapLocationUrl,
+           project_details AS projectDetails,
            location_advantages AS locationAdvantages,
            other_charges AS otherCharges,
            created_at AS createdAt,
@@ -1144,7 +1164,7 @@ app.put(
       );
 
       if (existingRows.length === 0) {
-        removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+        removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
         return res.status(404).json({ message: 'Villa not found.' });
       }
 
@@ -1155,6 +1175,12 @@ app.put(
       const existingExteriorImages = normalizeStringArray(existingRow.exteriorImages);
       const existingInteriorImages = normalizeStringArray(existingRow.interiorImages);
       const existingProjectDetails = parseJsonValue(existingRow.projectDetails, {}) || {};
+      const retainedExteriorImages = Array.isArray(normalizedPayload.existingExteriorImages)
+        ? normalizedPayload.existingExteriorImages.map((value) => parseUploadPathFromStoredUrl(value)).filter(Boolean)
+        : existingExteriorImages;
+      const retainedInteriorImages = Array.isArray(normalizedPayload.existingInteriorImages)
+        ? normalizedPayload.existingInteriorImages.map((value) => parseUploadPathFromStoredUrl(value)).filter(Boolean)
+        : existingInteriorImages;
 
       const imageFilesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
 
@@ -1172,17 +1198,22 @@ app.put(
       const nextLocation = normalizedPayload.location || existingRow.location || '';
       const nextSlug = await createUniqueVillaSlug(pool, nextName, normalizedPayload.slug || existingRow.slug, villaId);
       const nextProjectDetails = Object.keys(normalizedPayload.projectDetails || {}).length > 0
-        ? normalizedPayload.projectDetails
+        ? {
+            ...existingProjectDetails,
+            ...normalizedPayload.projectDetails,
+          }
         : existingProjectDetails;
       const nextHighlights = normalizedPayload.projectHighlights.length > 0 ? normalizedPayload.projectHighlights : existingHighlights;
       const nextAmenities = normalizedPayload.amenities.length > 0 ? normalizedPayload.amenities : existingAmenities;
       const nextLocationAdvantages = normalizedPayload.locationAdvantages.length > 0 ? normalizedPayload.locationAdvantages : existingLocationAdvantages;
-      const nextExteriorImages = exteriorImageFiles.length > 0 ? fileUrls.exteriorImages : existingExteriorImages;
-      const nextInteriorImages = interiorImageFiles.length > 0 ? fileUrls.interiorImages : existingInteriorImages;
+      const nextExteriorImages = [...retainedExteriorImages, ...fileUrls.exteriorImages];
+      const nextInteriorImages = [...retainedInteriorImages, ...fileUrls.interiorImages];
       const nextBannerImageUrl = bannerImageFile ? fileUrls.bannerImageUrl : existingRow.bannerImageUrl;
       const nextBrochurePdfUrl = brochurePdfFile ? fileUrls.brochurePdfUrl : existingRow.brochurePdfUrl;
       const nextWalkthroughVideoUrl = walkthroughVideoFile ? fileUrls.walkthroughVideoUrl : existingRow.walkthroughVideoUrl;
       const nextAvailabilityChartPdfUrl = availabilityChartPdfFile ? fileUrls.availabilityChartPdfUrl : existingRow.availabilityChartPdfUrl;
+      const nextLocationScanImageUrl = locationScanImageFile ? fileUrls.locationScanImageUrl : existingProjectDetails.locationScanImageUrl || '';
+      const nextReraScanImageUrl = reraScanImageFile ? fileUrls.reraScanImageUrl : existingProjectDetails.reraScanImageUrl || '';
       const nextDescription = normalizedPayload.description || existingRow.description || '';
       const nextOverviewTitle = normalizedPayload.overviewTitle || existingRow.overviewTitle || '';
       const nextOverviewDescription = normalizedPayload.overviewDescription || existingRow.overviewDescription || '';
@@ -1205,6 +1236,8 @@ app.put(
         price: nextProjectDetails.price || nextStartingPrice,
         status: nextProjectDetails.status || nextStatus,
         reraNumber: nextProjectDetails.reraNumber || normalizedPayload.reraNumber || existingProjectDetails.reraNumber || '',
+        locationScanImageUrl: nextLocationScanImageUrl,
+        reraScanImageUrl: nextReraScanImageUrl,
       };
 
       await pool.execute(
@@ -1282,12 +1315,23 @@ app.put(
         removeStoredImages([existingRow.availabilityChartPdfUrl]);
       }
 
-      if (exteriorImageFiles.length > 0 && existingExteriorImages.length > 0) {
-        removeStoredImages(existingExteriorImages);
+      if (locationScanImageFile && existingProjectDetails.locationScanImageUrl) {
+        removeStoredImages([existingProjectDetails.locationScanImageUrl]);
       }
 
-      if (interiorImageFiles.length > 0 && existingInteriorImages.length > 0) {
-        removeStoredImages(existingInteriorImages);
+      if (reraScanImageFile && existingProjectDetails.reraScanImageUrl) {
+        removeStoredImages([existingProjectDetails.reraScanImageUrl]);
+      }
+
+      const removedExteriorImages = existingExteriorImages.filter((imageUrl) => !retainedExteriorImages.includes(imageUrl));
+      const removedInteriorImages = existingInteriorImages.filter((imageUrl) => !retainedInteriorImages.includes(imageUrl));
+
+      if (removedExteriorImages.length > 0) {
+        removeStoredImages(removedExteriorImages);
+      }
+
+      if (removedInteriorImages.length > 0) {
+        removeStoredImages(removedInteriorImages);
       }
 
       const [rows] = await pool.execute(
@@ -1354,7 +1398,8 @@ app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
          walkthrough_video_url AS walkthroughVideoUrl,
          availability_chart_pdf_url AS availabilityChartPdfUrl,
          exterior_images AS exteriorImages,
-         interior_images AS interiorImages
+         interior_images AS interiorImages,
+         project_details AS projectDetails
        FROM villas
        WHERE id = ?
        LIMIT 1`,
@@ -1366,6 +1411,7 @@ app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
     }
 
     await pool.execute('DELETE FROM villas WHERE id = ?', [villaId]);
+    const projectDetails = parseJsonValue(rows[0].projectDetails, {}) || {};
     removeStoredImages([
       rows[0].bannerImageUrl,
       rows[0].brochurePdfUrl,
@@ -1373,6 +1419,8 @@ app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
       rows[0].availabilityChartPdfUrl,
       ...normalizeStringArray(rows[0].exteriorImages),
       ...normalizeStringArray(rows[0].interiorImages),
+      projectDetails.locationScanImageUrl,
+      projectDetails.reraScanImageUrl,
     ]);
 
     return res.json({ message: 'Villa deleted successfully.' });

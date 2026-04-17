@@ -1,14 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
 import { Link } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {
   createAdminVilla,
   deleteAdminVilla,
   getAdminVillas,
   updateAdminVilla,
 } from '../../services/api';
-import 'leaflet/dist/leaflet.css';
 import {
   FaBook,
   FaCar,
@@ -33,22 +30,15 @@ import {
   FaXmark,
 } from 'react-icons/fa6';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-});
-
 const WIZARD_STEPS = [
   { id: 'basic', title: 'Basic Data', helper: 'Identity, location, and banner image' },
-  { id: 'detailed', title: 'Detailed Info', helper: 'Status, brochure, description, and video' },
+  { id: 'detailed', title: 'Detailed Info', helper: 'Status, brochure, description, charges, and video' },
   { id: 'gallery', title: 'Gallery', helper: 'Exterior and interior images' },
   { id: 'highlights', title: 'Project Highlights', helper: 'Short selling points' },
   { id: 'details', title: 'Project Details', helper: 'Structured specs for the public page' },
   { id: 'amenities', title: 'Amenities & Features', helper: 'Custom amenity rows' },
   { id: 'availability', title: 'Availability Chart', helper: 'PDF upload' },
-  { id: 'location', title: 'Location & Legal', helper: 'Map link, advantages, and charges' },
+  { id: 'location', title: 'Location & Legal', helper: 'Map link, scan images, advantages, and charges' },
   { id: 'review', title: 'Review', helper: 'Check everything before saving' },
 ];
 
@@ -68,8 +58,6 @@ const EMPTY_AMENITY = {
   desc: '',
   icon: '',
 };
-
-const DEFAULT_MAP_CENTER = [11.8745, 75.3704];
 
 const AMENITY_ICON_OPTIONS = [
   { key: 'solar', label: 'Solar', Icon: FaSun },
@@ -108,144 +96,6 @@ function filterAmenityIconOptions(searchValue) {
       .toLowerCase()
       .includes(normalizedSearch);
   });
-}
-
-function buildMapUrl(latitude, longitude) {
-  return `https://www.google.com/maps?q=${latitude},${longitude}`;
-}
-
-function parseMapCoordinates(value) {
-  const rawValue = String(value || '').trim();
-
-  if (!rawValue) {
-    return null;
-  }
-
-  const googleQueryMatch = rawValue.match(/[?&]q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
-  if (googleQueryMatch) {
-    return [Number(googleQueryMatch[1]), Number(googleQueryMatch[2])];
-  }
-
-  const googleAtMatch = rawValue.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
-  if (googleAtMatch) {
-    return [Number(googleAtMatch[1]), Number(googleAtMatch[2])];
-  }
-
-  const plainMatch = rawValue.match(/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
-  if (plainMatch) {
-    return [Number(plainMatch[1]), Number(plainMatch[2])];
-  }
-
-  return null;
-}
-
-function MapViewport({ center }) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView(center, map.getZoom(), { animate: true });
-  }, [center, map]);
-
-  return null;
-}
-
-function MapEvents({ position, onChange }) {
-  useMapEvents({
-    click(event) {
-      onChange([event.latlng.lat, event.latlng.lng]);
-    },
-  });
-
-  return position ? (
-    <Marker
-      position={position}
-      draggable
-      eventHandlers={{
-        dragend(event) {
-          const marker = event.target.getLatLng();
-          onChange([marker.lat, marker.lng]);
-        },
-      }}
-    >
-      <Popup>Selected villa location</Popup>
-    </Marker>
-  ) : null;
-}
-
-function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, searchStatus, onSearch, isSearching }) {
-  const parsedCoordinates = parseMapCoordinates(value);
-  const [position, setPosition] = useState(parsedCoordinates || DEFAULT_MAP_CENTER);
-
-  useEffect(() => {
-    const nextCoordinates = parseMapCoordinates(value);
-
-    if (nextCoordinates) {
-      setPosition(nextCoordinates);
-    }
-  }, [value]);
-
-  const handleSelectPosition = (nextPosition) => {
-    setPosition(nextPosition);
-    onChange(buildMapUrl(nextPosition[0], nextPosition[1]));
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-primary">
-        <FaMapLocationDot className="text-accent" />
-        Pin the exact villa location
-      </div>
-      <div className="grid sm:grid-cols-[1fr_auto] gap-3">
-        <input
-          type="text"
-          value={searchValue}
-          onChange={(event) => onSearchValueChange(event.target.value)}
-          placeholder="Search a place and pin it on the map"
-          className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-        <button
-          type="button"
-          onClick={onSearch}
-          disabled={isSearching}
-          className="px-5 py-3 rounded-xl bg-primary text-white disabled:opacity-60"
-        >
-          <span className="inline-flex items-center gap-2">
-            <FaMagnifyingGlass />
-            {isSearching ? 'Searching...' : 'Search & Pin'}
-          </span>
-        </button>
-      </div>
-
-      <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-        <MapContainer center={position} zoom={15} scrollWheelZoom className="h-[360px] w-full">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapViewport center={position} />
-          <MapEvents position={position} onChange={handleSelectPosition} />
-        </MapContainer>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-textGrey">
-        <span>
-          Selected pin: <span className="text-primary">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
-        </span>
-        <span>{searchStatus || 'Click the map or drag the pin to update the project location.'}</span>
-      </div>
-
-      {value ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 text-accent text-sm"
-        >
-          <FaLocationDot /> Open selected pin in Maps
-        </a>
-      ) : null}
-    </div>
-  );
 }
 
 function formatDateTime(value) {
@@ -420,11 +270,17 @@ function createEmptyVillaForm() {
     overviewDescription: '',
     overviewTotalLand: '',
     overviewTotalUnits: '',
+    overviewEachPlot: '',
+    overviewBuiltupAreaSqFt: '',
     configuration: '',
     startingPrice: '',
     reraNumber: '',
     mapLocationUrl: '',
     otherCharges: '',
+    locationScanImageFile: null,
+    locationScanImageName: '',
+    reraScanImageFile: null,
+    reraScanImageName: '',
     projectDetails: { ...EMPTY_PROJECT_DETAIL },
     projectHighlights: [''],
     locationAdvantages: [''],
@@ -453,7 +309,10 @@ function mapVillaToForm(villa) {
     ? villa.projectDetails
     : {};
 
-  const exteriorImages = Array.isArray(villa.images?.exterior) ? villa.images.exterior : [];
+  const bannerImageUrl = villa.bannerImage || villa.image || '';
+  const exteriorImages = Array.isArray(villa.images?.exterior)
+    ? villa.images.exterior.filter((value) => value && value !== bannerImageUrl)
+    : [];
   const interiorImages = Array.isArray(villa.images?.interior) ? villa.images.interior : [];
 
   return {
@@ -470,6 +329,8 @@ function mapVillaToForm(villa) {
     overviewDescription: villa.overviewDescription || '',
     overviewTotalLand: villa.overviewTotalLand || '',
     overviewTotalUnits: villa.overviewTotalUnits || '',
+    overviewEachPlot: villa.overviewEachPlot || projectDetails.overviewEachPlot || '',
+    overviewBuiltupAreaSqFt: villa.overviewBuiltupAreaSqFt || projectDetails.overviewBuiltupAreaSqFt || '',
     configuration: villa.configuration || '',
     startingPrice: villa.startingPrice || villa.price || '',
     reraNumber: villa.reraNumber || projectDetails.reraNumber || '',
@@ -480,10 +341,14 @@ function mapVillaToForm(villa) {
       location: projectDetails.location || villa.location || '',
       totalLandArea: projectDetails.totalLandArea || villa.acres || '',
       totalUnits: projectDetails.totalUnits || villa.totalVillas || '',
+      overviewEachPlot: projectDetails.overviewEachPlot || villa.overviewEachPlot || '',
+      overviewBuiltupAreaSqFt: projectDetails.overviewBuiltupAreaSqFt || villa.overviewBuiltupAreaSqFt || '',
       configuration: projectDetails.configuration || villa.configuration || '',
       price: projectDetails.price || villa.startingPrice || villa.price || '',
       status: projectDetails.status || villa.status || 'draft',
       reraNumber: projectDetails.reraNumber || villa.reraNumber || '',
+      locationScanImageUrl: projectDetails.locationScanImageUrl || '',
+      reraScanImageUrl: projectDetails.reraScanImageUrl || '',
     },
     projectHighlights: normalizeArrayValue(villa.highlights).concat(['']).slice(0, Math.max(1, normalizeArrayValue(villa.highlights).length + 1)),
     locationAdvantages: normalizeArrayValue(villa.locationAdvantages).concat(['']).slice(0, Math.max(1, normalizeArrayValue(villa.locationAdvantages).length + 1)),
@@ -494,7 +359,7 @@ function mapVillaToForm(villa) {
         icon: String(item.icon || '').trim(),
       }))
       : [{ ...EMPTY_AMENITY }],
-    existingBannerImageUrl: villa.bannerImage || villa.image || '',
+    existingBannerImageUrl: bannerImageUrl,
     existingBrochurePdfUrl: villa.brochurePdfUrl || '',
     existingWalkthroughVideoUrl: villa.walkthroughVideoUrl || '',
     existingAvailabilityChartPdfUrl: villa.availabilityChartPdfUrl || '',
@@ -560,13 +425,12 @@ function VillaProjectsAdmin({ token }) {
   const [deletingVillaId, setDeletingVillaId] = useState(null);
   const [form, setForm] = useState(createEmptyVillaForm());
   const [amenityIconSearches, setAmenityIconSearches] = useState({});
-  const [mapSearchValue, setMapSearchValue] = useState('');
-  const [mapSearchStatus, setMapSearchStatus] = useState('');
-  const [isMapSearching, setIsMapSearching] = useState(false);
   const bannerInputRef = useRef(null);
   const brochureInputRef = useRef(null);
   const walkthroughVideoInputRef = useRef(null);
   const availabilityInputRef = useRef(null);
+  const locationScanInputRef = useRef(null);
+  const reraScanInputRef = useRef(null);
   const exteriorInputRef = useRef(null);
   const interiorInputRef = useRef(null);
   const bannerPreviewRef = useRef('');
@@ -652,6 +516,14 @@ function VillaProjectsAdmin({ token }) {
       availabilityInputRef.current.value = '';
     }
 
+    if (locationScanInputRef.current) {
+      locationScanInputRef.current.value = '';
+    }
+
+    if (reraScanInputRef.current) {
+      reraScanInputRef.current.value = '';
+    }
+
     if (exteriorInputRef.current) {
       exteriorInputRef.current.value = '';
     }
@@ -669,8 +541,6 @@ function VillaProjectsAdmin({ token }) {
       return createEmptyVillaForm();
     });
     setAmenityIconSearches({});
-    setMapSearchValue('');
-    setMapSearchStatus('');
     resetUploadInputs();
     setActiveStep(0);
   };
@@ -695,8 +565,6 @@ function VillaProjectsAdmin({ token }) {
       return mapVillaToForm(villa);
     });
     setAmenityIconSearches({});
-    setMapSearchValue('');
-    setMapSearchStatus('');
     resetUploadInputs();
     setMessage({ type: '', text: '' });
     setActiveStep(0);
@@ -728,6 +596,59 @@ function VillaProjectsAdmin({ token }) {
         [field]: nextValues.length > 0 ? nextValues : [field === 'amenities' ? { ...EMPTY_AMENITY } : ''],
       };
     });
+  };
+
+  const removeGalleryImage = (field, index) => {
+    setForm((previous) => {
+      const nextValues = [...previous[field]];
+      const removed = nextValues.splice(index, 1)[0];
+      revokePreviewEntry(removed);
+
+      return {
+        ...previous,
+        [field]: nextValues,
+      };
+    });
+  };
+
+  const renderGalleryImageGrid = (title, items, field, emptyLabel) => {
+    if (!items.length) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-primary">{title}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {items.map((item, index) => {
+            const isExistingImage = typeof item === 'string';
+            const imageSrc = isExistingImage ? item : item.previewUrl;
+            const imageName = isExistingImage ? emptyLabel || `Image ${index + 1}` : item.name;
+            const imageSize = isExistingImage ? '' : formatFileSize(item.size);
+
+            return (
+              <div key={`${field}-${imageName}-${index}`} className="relative overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <img src={imageSrc} alt={imageName} className="h-28 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeGalleryImage(field, index)}
+                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                  aria-label={`Remove ${imageName}`}
+                >
+                  <FaXmark className="text-sm" />
+                </button>
+                {!isExistingImage ? (
+                  <div className="p-2">
+                    <p className="text-[11px] text-primary truncate">{imageName}</p>
+                    <p className="text-[10px] text-textGrey">{imageSize}</p>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const handleBannerSelection = async (event) => {
@@ -771,6 +692,12 @@ function VillaProjectsAdmin({ token }) {
     const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
 
     if (!selectedFile) {
+      return;
+    }
+
+    if ((field === 'locationScanImageFile' || field === 'reraScanImageFile') && !String(selectedFile.type || '').startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Only image files are allowed.' });
+      event.target.value = '';
       return;
     }
 
@@ -888,6 +815,8 @@ function VillaProjectsAdmin({ token }) {
         location: form.location.trim(),
         totalLandArea: form.acres.trim(),
         totalUnits: form.totalVillas.trim(),
+        overviewEachPlot: form.overviewEachPlot.trim(),
+        overviewBuiltupAreaSqFt: form.overviewBuiltupAreaSqFt.trim(),
         configuration: form.configuration.trim(),
         price: form.startingPrice.trim(),
         status: form.status,
@@ -896,6 +825,8 @@ function VillaProjectsAdmin({ token }) {
       payload.append('projectHighlights', JSON.stringify(cleanArray(form.projectHighlights)));
       payload.append('locationAdvantages', JSON.stringify(cleanArray(form.locationAdvantages)));
       payload.append('amenities', JSON.stringify(cleanAmenities(form.amenities)));
+      payload.append('existingExteriorImages', JSON.stringify(form.existingExteriorImages));
+      payload.append('existingInteriorImages', JSON.stringify(form.existingInteriorImages));
 
       if (form.bannerImageFile) {
         payload.append('bannerImage', form.bannerImageFile);
@@ -911,6 +842,14 @@ function VillaProjectsAdmin({ token }) {
 
       if (form.availabilityChartPdfFile) {
         payload.append('availabilityChartPdf', form.availabilityChartPdfFile);
+      }
+
+      if (form.locationScanImageFile) {
+        payload.append('locationScanImage', form.locationScanImageFile);
+      }
+
+      if (form.reraScanImageFile) {
+        payload.append('reraScanImage', form.reraScanImageFile);
       }
 
       form.exteriorImages.forEach((item) => {
@@ -1201,6 +1140,20 @@ function VillaProjectsAdmin({ token }) {
                 onChange={(event) => setForm((previous) => ({ ...previous, overviewTotalUnits: event.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
+              <input
+                type="text"
+                placeholder="Each plot (Cent)"
+                value={form.overviewEachPlot}
+                onChange={(event) => setForm((previous) => ({ ...previous, overviewEachPlot: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <input
+                type="text"
+                placeholder="Built-up area Sq.Ft"
+                value={form.overviewBuiltupAreaSqFt}
+                onChange={(event) => setForm((previous) => ({ ...previous, overviewBuiltupAreaSqFt: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
@@ -1218,6 +1171,13 @@ function VillaProjectsAdmin({ token }) {
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
+            <textarea
+              placeholder="Other charges"
+              value={form.otherCharges}
+              onChange={(event) => setForm((previous) => ({ ...previous, otherCharges: event.target.value }))}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+            />
           </div>
         );
       case 'gallery':
@@ -1235,27 +1195,11 @@ function VillaProjectsAdmin({ token }) {
               />
               <div className="flex flex-wrap items-center gap-3">
                 <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
-                <button type="button" onClick={() => clearMultiImages('exteriorImages')} className="text-sm text-accent">Clear</button>
               </div>
-              {form.exteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.exteriorImages.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
-                      <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
-                      <div className="p-2">
-                        <p className="text-[11px] text-primary truncate">{item.name}</p>
-                        <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : form.existingExteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.existingExteriorImages.map((src, index) => (
-                    <img key={`${src}-${index}`} src={src} alt={`Exterior ${index + 1}`} className="h-24 w-full rounded-xl object-cover border border-gray-200" />
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-4 space-y-4">
+                {renderGalleryImageGrid('Selected exterior images', form.exteriorImages, 'exteriorImages', 'Exterior image')}
+                {renderGalleryImageGrid('Current exterior images', form.existingExteriorImages, 'existingExteriorImages', 'Exterior image')}
+              </div>
             </div>
             <div className="rounded-2xl border border-primary/15 bg-white p-4">
               <input
@@ -1269,27 +1213,11 @@ function VillaProjectsAdmin({ token }) {
               />
               <div className="flex flex-wrap items-center gap-3">
                 <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
-                <button type="button" onClick={() => clearMultiImages('interiorImages')} className="text-sm text-accent">Clear</button>
               </div>
-              {form.interiorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.interiorImages.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
-                      <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
-                      <div className="p-2">
-                        <p className="text-[11px] text-primary truncate">{item.name}</p>
-                        <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : form.existingInteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.existingInteriorImages.map((src, index) => (
-                    <img key={`${src}-${index}`} src={src} alt={`Interior ${index + 1}`} className="h-24 w-full rounded-xl object-cover border border-gray-200" />
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-4 space-y-4">
+                {renderGalleryImageGrid('Selected interior images', form.interiorImages, 'interiorImages', 'Interior image')}
+                {renderGalleryImageGrid('Current interior images', form.existingInteriorImages, 'existingInteriorImages', 'Interior image')}
+              </div>
             </div>
           </div>
         );
@@ -1463,54 +1391,62 @@ function VillaProjectsAdmin({ token }) {
       case 'location':
         return (
           <div className="space-y-4">
-            <MapLocationPicker
-              value={form.mapLocationUrl}
-              searchValue={mapSearchValue}
-              onSearchValueChange={setMapSearchValue}
-              searchStatus={mapSearchStatus}
-              isSearching={isMapSearching}
-              onChange={(nextValue) => setForm((previous) => ({ ...previous, mapLocationUrl: nextValue }))}
-              onSearch={async () => {
-                const query = mapSearchValue.trim();
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <FaMapLocationDot className="text-accent" />
+                Paste the Google Maps share link
+              </div>
+              <input
+                type="url"
+                placeholder="https://maps.app.goo.gl/... or a Google Maps place link"
+                value={form.mapLocationUrl}
+                onChange={(event) => setForm((previous) => ({ ...previous, mapLocationUrl: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <p className="text-xs text-textGrey">
+                In Google Maps, open the exact place, click Share, and paste the copied link here.
+              </p>
+              {form.mapLocationUrl ? (
+                <a
+                  href={form.mapLocationUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 text-accent text-sm"
+                >
+                  <FaLocationDot /> Open map link
+                </a>
+              ) : null}
+            </div>
 
-                if (!query) {
-                  setMapSearchStatus('Enter a place, area, or landmark to search.');
-                  return;
-                }
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-primary">Location scan image</p>
+                <input
+                  ref={locationScanInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleSingleFileSelection('locationScanImageFile', 'locationScanImageName', event)}
+                  className="w-full text-sm"
+                />
+                <p className="text-sm text-textGrey">
+                  {form.locationScanImageName || (form.projectDetails.locationScanImageUrl ? 'Current location scan image is set' : 'No file selected')}
+                </p>
+              </div>
 
-                setIsMapSearching(true);
-                setMapSearchStatus('Searching for the location...');
-
-                try {
-                  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`);
-                  const results = await response.json();
-                  const result = Array.isArray(results) ? results[0] : null;
-
-                  if (!result) {
-                    setMapSearchStatus('No matching location found. Try a more specific search.');
-                    return;
-                  }
-
-                  const latitude = Number(result.lat);
-                  const longitude = Number(result.lon);
-                  const nextValue = buildMapUrl(latitude, longitude);
-
-                  setForm((previous) => ({ ...previous, mapLocationUrl: nextValue }));
-                  setMapSearchStatus(`Pinned ${result.display_name || 'the selected location'}.`);
-                } catch (_error) {
-                  setMapSearchStatus('Could not search the map right now. Try again later.');
-                } finally {
-                  setIsMapSearching(false);
-                }
-              }}
-            />
-            <textarea
-              placeholder="Other charges"
-              value={form.otherCharges}
-              onChange={(event) => setForm((previous) => ({ ...previous, otherCharges: event.target.value }))}
-              rows={3}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-            />
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-primary">RERA scan image</p>
+                <input
+                  ref={reraScanInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleSingleFileSelection('reraScanImageFile', 'reraScanImageName', event)}
+                  className="w-full text-sm"
+                />
+                <p className="text-sm text-textGrey">
+                  {form.reraScanImageName || (form.projectDetails.reraScanImageUrl ? 'Current RERA scan image is set' : 'No file selected')}
+                </p>
+              </div>
+            </div>
             {form.locationAdvantages.map((item, index) => (
               <div key={`advantage-${index}`} className="flex gap-3">
                 <input
