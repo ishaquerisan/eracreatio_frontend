@@ -1,8 +1,5 @@
 require('dotenv').config();
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -20,31 +17,15 @@ const {
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24;
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const GALLERY_UPLOADS_DIR = path.join(UPLOADS_DIR, 'galleries');
-const COMMERCIAL_PROJECT_UPLOADS_DIR = path.join(UPLOADS_DIR, 'commercial-projects');
-const VILLA_UPLOADS_DIR = path.join(UPLOADS_DIR, 'villas');
-const BLOG_UPLOADS_DIR = path.join(UPLOADS_DIR, 'blogs');
+const MEDIA_URL_PREFIX = '/api/media/';
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
 const VILLA_STATUSES = new Set(['draft', 'ongoing', 'upcoming', 'completed']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
-fs.mkdirSync(GALLERY_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(COMMERCIAL_PROJECT_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(VILLA_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(BLOG_UPLOADS_DIR, { recursive: true });
-
 const galleryUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, GALLERY_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -58,14 +39,7 @@ const galleryUpload = multer({
 });
 
 const commercialProjectUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, COMMERCIAL_PROJECT_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -79,31 +53,7 @@ const commercialProjectUpload = multer({
 });
 
 const villaUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, VILLA_UPLOADS_DIR);
-    },
-    filename: (_req, file, cb) => {
-      const mimeType = String(file.mimetype || '').toLowerCase();
-      let extension = '.bin';
-
-      if (mimeType.startsWith('image/')) {
-        extension = '.jpg';
-      } else if (mimeType === 'application/pdf') {
-        extension = '.pdf';
-      } else if (mimeType.startsWith('video/')) {
-        if (mimeType.includes('webm')) {
-          extension = '.webm';
-        } else if (mimeType.includes('quicktime')) {
-          extension = '.mov';
-        } else {
-          extension = '.mp4';
-        }
-      }
-
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 120 * 1024 * 1024,
   },
@@ -119,14 +69,7 @@ const villaUpload = multer({
 });
 
 const blogUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, BLOG_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -295,6 +238,148 @@ function normalizeStringArray(value) {
   return rawItems.map((item) => String(item || '').trim()).filter(Boolean);
 }
 
+function normalizeStoredReferenceUrl(value) {
+  const rawValue = String(value || '').trim();
+
+  if (!rawValue) {
+    return '';
+  }
+
+  if (rawValue.startsWith('/api/media/')) {
+    return rawValue;
+  }
+
+  try {
+    const parsed = new URL(rawValue);
+
+    if (parsed.pathname.startsWith('/api/media/')) {
+      return parsed.pathname;
+    }
+  } catch (_error) {
+    return rawValue;
+  }
+
+  return rawValue;
+}
+
+function getMediaUrl(mediaId) {
+  return `${MEDIA_URL_PREFIX}${mediaId}`;
+}
+
+function getMediaIdFromStoredUrl(value) {
+  const storedUrl = normalizeStoredReferenceUrl(value);
+
+  if (!storedUrl.startsWith('/api/media/')) {
+    return null;
+  }
+
+  const mediaId = Number(storedUrl.slice('/api/media/'.length));
+  return Number.isInteger(mediaId) && mediaId > 0 ? mediaId : null;
+}
+
+async function compressImageBuffer(fileBuffer) {
+  return sharp(fileBuffer)
+    .rotate()
+    .resize({
+      width: IMAGE_MAX_DIMENSION,
+      height: IMAGE_MAX_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
+async function storeUploadedMediaFile(pool, file) {
+  if (!file || !file.buffer) {
+    return '';
+  }
+
+  const mimeType = String(file.mimetype || '').toLowerCase();
+  let data = Buffer.from(file.buffer);
+  let storedMimeType = mimeType || 'application/octet-stream';
+  let storedFileName = String(file.originalname || 'upload').trim() || 'upload';
+
+  if (mimeType.startsWith('image/')) {
+    data = await compressImageBuffer(file.buffer);
+    storedMimeType = 'image/jpeg';
+    storedFileName = `${storedFileName.replace(/\.[^/.]+$/, '') || 'image'}.jpg`;
+  }
+
+  const [result] = await pool.execute(
+    `INSERT INTO media_assets (file_name, mime_type, file_size, data)
+     VALUES (?, ?, ?, ?)`,
+    [storedFileName, storedMimeType, data.length, data]
+  );
+
+  return getMediaUrl(result.insertId);
+}
+
+async function storeUploadedMediaFiles(pool, files) {
+  const storedUrls = [];
+
+  for (const file of files || []) {
+    if (!file) {
+      continue;
+    }
+
+    storedUrls.push(await storeUploadedMediaFile(pool, file));
+  }
+
+  return storedUrls.filter(Boolean);
+}
+
+async function storeVillaUploadedMedia(pool, uploadedFiles = {}) {
+  const fileUrls = {
+    bannerImageUrl: '',
+    projectLogoUrl: '',
+    brochurePdfUrl: '',
+    walkthroughVideoUrl: '',
+    availabilityChartPdfUrl: '',
+    locationScanImageUrl: '',
+    reraScanImageUrl: '',
+    exteriorImages: [],
+    interiorImages: [],
+  };
+  const cleanupUrls = [];
+
+  const storeSingle = async (file) => {
+    const url = await storeUploadedMediaFile(pool, file);
+
+    if (url) {
+      cleanupUrls.push(url);
+    }
+
+    return url;
+  };
+
+  const storeMultiple = async (files) => {
+    const urls = [];
+
+    for (const file of files || []) {
+      if (!file) {
+        continue;
+      }
+
+      urls.push(await storeSingle(file));
+    }
+
+    return urls.filter(Boolean);
+  };
+
+  fileUrls.bannerImageUrl = await storeSingle((uploadedFiles.bannerImage || [])[0]);
+  fileUrls.projectLogoUrl = await storeSingle((uploadedFiles.projectLogo || [])[0]);
+  fileUrls.brochurePdfUrl = await storeSingle((uploadedFiles.brochurePdf || [])[0]);
+  fileUrls.walkthroughVideoUrl = await storeSingle((uploadedFiles.walkthroughVideo || [])[0]);
+  fileUrls.availabilityChartPdfUrl = await storeSingle((uploadedFiles.availabilityChartPdf || [])[0]);
+  fileUrls.locationScanImageUrl = await storeSingle((uploadedFiles.locationScanImage || [])[0]);
+  fileUrls.reraScanImageUrl = await storeSingle((uploadedFiles.reraScanImage || [])[0]);
+  fileUrls.exteriorImages = await storeMultiple(uploadedFiles.exteriorImages || []);
+  fileUrls.interiorImages = await storeMultiple(uploadedFiles.interiorImages || []);
+
+  return { fileUrls, cleanupUrls };
+}
+
 function normalizeVillaPayload(body) {
   const payload = body || {};
 
@@ -399,33 +484,16 @@ function mapVillaRowForAdmin(row, req) {
   return mapVillaRow(row, req);
 }
 
-function getVillaFileUrls(uploadedFiles = {}) {
-  const toUrl = (file) => (file ? `/uploads/villas/${file.filename}` : '');
-
-  return {
-    bannerImageUrl: toUrl((uploadedFiles.bannerImage || [])[0]),
-    projectLogoUrl: toUrl((uploadedFiles.projectLogo || [])[0]),
-    brochurePdfUrl: toUrl((uploadedFiles.brochurePdf || [])[0]),
-    walkthroughVideoUrl: toUrl((uploadedFiles.walkthroughVideo || [])[0]),
-    availabilityChartPdfUrl: toUrl((uploadedFiles.availabilityChartPdf || [])[0]),
-    locationScanImageUrl: toUrl((uploadedFiles.locationScanImage || [])[0]),
-    reraScanImageUrl: toUrl((uploadedFiles.reraScanImage || [])[0]),
-    exteriorImages: (uploadedFiles.exteriorImages || []).map((file) => `/uploads/villas/${file.filename}`),
-    interiorImages: (uploadedFiles.interiorImages || []).map((file) => `/uploads/villas/${file.filename}`),
-  };
-}
-
-function normalizeBlogPayload(body, uploadedFile = null) {
+function normalizeBlogPayload(body) {
   const payload = body || {};
   const isPublishedValue = String(payload.isPublished || '').trim().toLowerCase();
   const isPublished = isPublishedValue === 'false' || payload.isPublished === false ? 0 : 1;
-  const uploadedImageUrl = uploadedFile ? `/uploads/blogs/${uploadedFile.filename}` : '';
 
   return {
     title: String(payload.title || '').trim(),
     excerpt: String(payload.excerpt || '').trim(),
     content: String(payload.content || '').trim(),
-    imageUrl: uploadedImageUrl || String(payload.imageUrl || '').trim(),
+    imageUrl: String(payload.imageUrl || '').trim(),
     category: String(payload.category || '').trim() || 'General',
     author: String(payload.author || '').trim() || 'Era Creatio Editorial',
     preferredSlug: String(payload.slug || '').trim(),
@@ -471,58 +539,6 @@ function normalizeGalleryCategory(value) {
   return GALLERY_CATEGORIES.has(normalized) ? normalized : '';
 }
 
-function removeUploadedFiles(files) {
-  for (const file of files || []) {
-    if (!file || !file.path) {
-      continue;
-    }
-
-    fs.promises.unlink(file.path).catch(() => {
-      // Ignore cleanup failures to avoid masking the main error.
-    });
-  }
-}
-
-async function compressUploadedImage(file) {
-  if (!file || !file.path) {
-    return null;
-  }
-
-  const tempPath = `${file.path}.tmp`;
-
-  try {
-    await sharp(file.path)
-      .rotate()
-      .resize({
-        width: IMAGE_MAX_DIMENSION,
-        height: IMAGE_MAX_DIMENSION,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
-      .toFile(tempPath);
-
-    await fs.promises.rename(tempPath, file.path);
-    return file;
-  } catch (error) {
-    await fs.promises.unlink(tempPath).catch(() => {
-      // Ignore cleanup failures from partial compression writes.
-    });
-    throw error;
-  }
-}
-
-async function compressUploadedImages(files) {
-  const normalized = Array.isArray(files) ? files.filter(Boolean) : [];
-
-  if (!normalized.length) {
-    return [];
-  }
-
-  await Promise.all(normalized.map((file) => compressUploadedImage(file)));
-  return normalized;
-}
-
 function normalizeStoredImageUrl(req, value) {
   const imageUrl = String(value || '').trim();
 
@@ -538,6 +554,28 @@ function normalizeStoredImageUrl(req, value) {
   const origin = publicOrigin || `${req.protocol}://${req.get('host')}`;
 
   return `${origin}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+}
+
+function removeStoredImages(imageUrls) {
+  const cleanupTasks = [];
+
+  for (const imageUrl of imageUrls || []) {
+    const mediaId = getMediaIdFromStoredUrl(imageUrl);
+
+    if (mediaId) {
+      cleanupTasks.push(
+        getPool().then((pool) => pool.execute('DELETE FROM media_assets WHERE id = ?', [mediaId])).catch(() => null)
+      );
+    }
+  }
+
+  if (cleanupTasks.length > 0) {
+    Promise.all(cleanupTasks).catch(() => null);
+  }
+}
+
+function parseUploadPathFromStoredUrl(value) {
+  return normalizeStoredReferenceUrl(value);
 }
 
 function mapGalleryRowsToCollections(rows, req) {
@@ -634,27 +672,7 @@ function mapCommercialProjectRowsToCollections(rows, req) {
 }
 
 function parseUploadPathFromStoredUrl(value) {
-  const imageUrl = String(value || '').trim();
-
-  if (!imageUrl) {
-    return '';
-  }
-
-  if (imageUrl.startsWith('/uploads/')) {
-    return imageUrl;
-  }
-
-  try {
-    const parsed = new URL(imageUrl);
-
-    if (parsed.pathname.startsWith('/uploads/')) {
-      return parsed.pathname;
-    }
-  } catch (_error) {
-    return '';
-  }
-
-  return '';
+  return normalizeStoredReferenceUrl(value);
 }
 
 function removeStoredImages(imageUrls) {
@@ -722,7 +740,42 @@ app.use(
   })
 );
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
+
+app.get('/api/media/:mediaId', async (req, res) => {
+  const mediaId = Number(req.params.mediaId);
+
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ message: 'Invalid media id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         file_name AS fileName,
+         mime_type AS mimeType,
+         file_size AS fileSize,
+         data
+       FROM media_assets
+       WHERE id = ?
+       LIMIT 1`,
+      [mediaId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Media asset not found.' });
+    }
+
+    const media = rows[0];
+    res.setHeader('Content-Type', media.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Length', String(media.fileSize || media.data?.length || 0));
+    res.setHeader('Content-Disposition', `inline; filename="${String(media.fileName || 'asset').replace(/"/g, '')}"`);
+    return res.send(media.data);
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load media asset.' });
+  }
+});
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -977,33 +1030,17 @@ app.post(
   async (req, res) => {
     const uploadedFiles = req.files || {};
     const normalizedPayload = normalizeVillaPayload(req.body);
-    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
-    const projectLogoFile = (uploadedFiles.projectLogo || [])[0] || null;
-    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
-    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
-    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
-    const locationScanImageFile = (uploadedFiles.locationScanImage || [])[0] || null;
-    const reraScanImageFile = (uploadedFiles.reraScanImage || [])[0] || null;
-    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
-    const interiorImageFiles = uploadedFiles.interiorImages || [];
-    const filesToProcess = [bannerImageFile, projectLogoFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
-
     if (!normalizedPayload.name || !normalizedPayload.location) {
-      removeUploadedFiles([bannerImageFile, projectLogoFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Name and location are required.' });
     }
 
-    try {
-      await Promise.all(filesToProcess.map((file) => compressUploadedImage(file)));
-    } catch (_error) {
-      removeUploadedFiles([bannerImageFile, projectLogoFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
-      return res.status(500).json({ message: 'Could not process villa images.' });
-    }
-
-    const fileUrls = getVillaFileUrls(uploadedFiles);
+    let cleanupUrls = [];
 
     try {
       const pool = await getPool();
+      const storedMedia = await storeVillaUploadedMedia(pool, uploadedFiles);
+      cleanupUrls = storedMedia.cleanupUrls;
+      const { fileUrls } = storedMedia;
       const slug = await createUniqueVillaSlug(pool, normalizedPayload.name, normalizedPayload.slug);
       const projectDetails = {
         ...(normalizedPayload.projectDetails && typeof normalizedPayload.projectDetails === 'object' ? normalizedPayload.projectDetails : {}),
@@ -1098,7 +1135,7 @@ app.post(
         villa: mapVillaRowForAdmin(rows[0], req),
       });
     } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeStoredImages(cleanupUrls);
       return res.status(500).json({ message: 'Could not create villa.' });
     }
   }
@@ -1122,20 +1159,19 @@ app.put(
     const villaId = Number(req.params.villaId);
     const uploadedFiles = req.files || {};
     const normalizedPayload = normalizeVillaPayload(req.body);
-    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
-    const projectLogoFile = (uploadedFiles.projectLogo || [])[0] || null;
-    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
-    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
-    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
-    const locationScanImageFile = (uploadedFiles.locationScanImage || [])[0] || null;
-    const reraScanImageFile = (uploadedFiles.reraScanImage || [])[0] || null;
-    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
-    const interiorImageFiles = uploadedFiles.interiorImages || [];
+    const hasBannerImage = Array.isArray(uploadedFiles.bannerImage) && uploadedFiles.bannerImage.length > 0;
+    const hasProjectLogo = Array.isArray(uploadedFiles.projectLogo) && uploadedFiles.projectLogo.length > 0;
+    const hasBrochurePdf = Array.isArray(uploadedFiles.brochurePdf) && uploadedFiles.brochurePdf.length > 0;
+    const hasWalkthroughVideo = Array.isArray(uploadedFiles.walkthroughVideo) && uploadedFiles.walkthroughVideo.length > 0;
+    const hasAvailabilityChartPdf = Array.isArray(uploadedFiles.availabilityChartPdf) && uploadedFiles.availabilityChartPdf.length > 0;
+    const hasLocationScanImage = Array.isArray(uploadedFiles.locationScanImage) && uploadedFiles.locationScanImage.length > 0;
+    const hasReraScanImage = Array.isArray(uploadedFiles.reraScanImage) && uploadedFiles.reraScanImage.length > 0;
 
     if (!Number.isInteger(villaId) || villaId <= 0) {
-      removeUploadedFiles([bannerImageFile, projectLogoFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Invalid villa id.' });
     }
+
+    let cleanupUrls = [];
 
     try {
       const pool = await getPool();
@@ -1178,7 +1214,6 @@ app.put(
       );
 
       if (existingRows.length === 0) {
-        removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, locationScanImageFile, reraScanImageFile, ...exteriorImageFiles, ...interiorImageFiles]);
         return res.status(404).json({ message: 'Villa not found.' });
       }
 
@@ -1190,24 +1225,15 @@ app.put(
       const existingInteriorImages = normalizeStringArray(existingRow.interiorImages);
       const existingProjectDetails = parseJsonValue(existingRow.projectDetails, {}) || {};
       const retainedExteriorImages = Array.isArray(normalizedPayload.existingExteriorImages)
-        ? normalizedPayload.existingExteriorImages.map((value) => parseUploadPathFromStoredUrl(value)).filter(Boolean)
+        ? normalizedPayload.existingExteriorImages.map((value) => normalizeStoredReferenceUrl(value)).filter(Boolean)
         : existingExteriorImages;
       const retainedInteriorImages = Array.isArray(normalizedPayload.existingInteriorImages)
-        ? normalizedPayload.existingInteriorImages.map((value) => parseUploadPathFromStoredUrl(value)).filter(Boolean)
+        ? normalizedPayload.existingInteriorImages.map((value) => normalizeStoredReferenceUrl(value)).filter(Boolean)
         : existingInteriorImages;
 
-      const imageFilesToProcess = [bannerImageFile, projectLogoFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
-
-      if (imageFilesToProcess.length > 0) {
-        try {
-          await Promise.all(imageFilesToProcess.map((file) => compressUploadedImage(file)));
-        } catch (_error) {
-          removeUploadedFiles([bannerImageFile, projectLogoFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
-          return res.status(500).json({ message: 'Could not process villa images.' });
-        }
-      }
-
-      const fileUrls = getVillaFileUrls(uploadedFiles);
+      const storedMedia = await storeVillaUploadedMedia(pool, uploadedFiles);
+      cleanupUrls = storedMedia.cleanupUrls;
+      const { fileUrls } = storedMedia;
       const nextName = normalizedPayload.name || existingRow.name || '';
       const nextLocation = normalizedPayload.location || existingRow.location || '';
       const nextSlug = await createUniqueVillaSlug(pool, nextName, normalizedPayload.slug || existingRow.slug, villaId);
@@ -1222,13 +1248,13 @@ app.put(
       const nextLocationAdvantages = normalizedPayload.locationAdvantages.length > 0 ? normalizedPayload.locationAdvantages : existingLocationAdvantages;
       const nextExteriorImages = [...retainedExteriorImages, ...fileUrls.exteriorImages];
       const nextInteriorImages = [...retainedInteriorImages, ...fileUrls.interiorImages];
-      const nextBannerImageUrl = bannerImageFile ? fileUrls.bannerImageUrl : existingRow.bannerImageUrl;
-      const nextProjectLogoUrl = projectLogoFile ? fileUrls.projectLogoUrl : existingRow.projectLogoUrl;
-      const nextBrochurePdfUrl = brochurePdfFile ? fileUrls.brochurePdfUrl : existingRow.brochurePdfUrl;
-      const nextWalkthroughVideoUrl = walkthroughVideoFile ? fileUrls.walkthroughVideoUrl : existingRow.walkthroughVideoUrl;
-      const nextAvailabilityChartPdfUrl = availabilityChartPdfFile ? fileUrls.availabilityChartPdfUrl : existingRow.availabilityChartPdfUrl;
-      const nextLocationScanImageUrl = locationScanImageFile ? fileUrls.locationScanImageUrl : existingProjectDetails.locationScanImageUrl || '';
-      const nextReraScanImageUrl = reraScanImageFile ? fileUrls.reraScanImageUrl : existingProjectDetails.reraScanImageUrl || '';
+      const nextBannerImageUrl = fileUrls.bannerImageUrl || existingRow.bannerImageUrl;
+      const nextProjectLogoUrl = fileUrls.projectLogoUrl || existingRow.projectLogoUrl;
+      const nextBrochurePdfUrl = fileUrls.brochurePdfUrl || existingRow.brochurePdfUrl;
+      const nextWalkthroughVideoUrl = fileUrls.walkthroughVideoUrl || existingRow.walkthroughVideoUrl;
+      const nextAvailabilityChartPdfUrl = fileUrls.availabilityChartPdfUrl || existingRow.availabilityChartPdfUrl;
+      const nextLocationScanImageUrl = fileUrls.locationScanImageUrl || existingProjectDetails.locationScanImageUrl || '';
+      const nextReraScanImageUrl = fileUrls.reraScanImageUrl || existingProjectDetails.reraScanImageUrl || '';
       const nextDescription = normalizedPayload.description || existingRow.description || '';
       const nextOverviewTitle = normalizedPayload.overviewTitle || existingRow.overviewTitle || '';
       const nextOverviewDescription = normalizedPayload.overviewDescription || existingRow.overviewDescription || '';
@@ -1316,31 +1342,31 @@ app.put(
         ]
       );
 
-      if (bannerImageFile && existingRow.bannerImageUrl) {
+      if (hasBannerImage && existingRow.bannerImageUrl) {
         removeStoredImages([existingRow.bannerImageUrl]);
       }
 
-      if (projectLogoFile && existingRow.projectLogoUrl) {
+      if (hasProjectLogo && existingRow.projectLogoUrl) {
         removeStoredImages([existingRow.projectLogoUrl]);
       }
 
-      if (brochurePdfFile && existingRow.brochurePdfUrl) {
+      if (hasBrochurePdf && existingRow.brochurePdfUrl) {
         removeStoredImages([existingRow.brochurePdfUrl]);
       }
 
-      if (walkthroughVideoFile && existingRow.walkthroughVideoUrl) {
+      if (hasWalkthroughVideo && existingRow.walkthroughVideoUrl) {
         removeStoredImages([existingRow.walkthroughVideoUrl]);
       }
 
-      if (availabilityChartPdfFile && existingRow.availabilityChartPdfUrl) {
+      if (hasAvailabilityChartPdf && existingRow.availabilityChartPdfUrl) {
         removeStoredImages([existingRow.availabilityChartPdfUrl]);
       }
 
-      if (locationScanImageFile && existingProjectDetails.locationScanImageUrl) {
+      if (hasLocationScanImage && existingProjectDetails.locationScanImageUrl) {
         removeStoredImages([existingProjectDetails.locationScanImageUrl]);
       }
 
-      if (reraScanImageFile && existingProjectDetails.reraScanImageUrl) {
+      if (hasReraScanImage && existingProjectDetails.reraScanImageUrl) {
         removeStoredImages([existingProjectDetails.reraScanImageUrl]);
       }
 
@@ -1397,7 +1423,7 @@ app.put(
         villa: mapVillaRowForAdmin(rows[0], req),
       });
     } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeStoredImages(cleanupUrls);
       return res.status(500).json({ message: 'Could not update villa.' });
     }
   }
@@ -1737,27 +1763,20 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
   const placeName = String(req.body?.placeName || '').trim();
 
   if (!galleryType || !category || !placeName) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Gallery type, category, and place name are required.' });
   }
 
   if (files.length < 1 || files.length > 3) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Please upload at least 1 and at most 3 images for each place.' });
   }
 
-  try {
-    await compressUploadedImages(files);
-  } catch (_error) {
-    removeUploadedFiles(files);
-    return res.status(500).json({ message: 'Could not process gallery images.' });
-  }
-
-  const imageUrls = files.map((file) => `/uploads/galleries/${file.filename}`);
-  const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
+  let imageUrls = [];
 
   try {
     const pool = await getPool();
+    imageUrls = await storeUploadedMediaFiles(pool, files);
+    const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
+
     const [result] = await pool.execute(
       `INSERT INTO gallery_entries
         (gallery_type, category, place_name, image_1_url, image_2_url, image_3_url)
@@ -1787,7 +1806,7 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
       entry: mapGalleryRowForAdmin(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles(files);
+    removeStoredImages(imageUrls);
     return res.status(500).json({ message: 'Could not save gallery entry.' });
   }
 });
@@ -1800,25 +1819,15 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
   const placeName = String(req.body?.placeName || '').trim();
 
   if (!Number.isInteger(entryId) || entryId <= 0) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Invalid gallery entry id.' });
   }
 
   if (!galleryType || !category || !placeName) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Gallery type, category, and place name are required.' });
   }
 
   if (files.length > 3) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Please upload at most 3 image files.' });
-  }
-
-  try {
-    await compressUploadedImages(files);
-  } catch (_error) {
-    removeUploadedFiles(files);
-    return res.status(500).json({ message: 'Could not process gallery images.' });
   }
 
   try {
@@ -1836,7 +1845,6 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles(files);
       return res.status(404).json({ message: 'Gallery entry not found.' });
     }
 
@@ -1844,7 +1852,7 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
     let shouldDeleteExistingImages = false;
 
     if (files.length > 0) {
-      const uploadedImageUrls = files.map((file) => `/uploads/galleries/${file.filename}`);
+      const uploadedImageUrls = await storeUploadedMediaFiles(pool, files);
       nextImageUrls = [...uploadedImageUrls, '', ''].slice(0, 3);
       shouldDeleteExistingImages = true;
     }
@@ -1888,7 +1896,6 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
       entry: mapGalleryRowForAdmin(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles(files);
     return res.status(500).json({ message: 'Could not update gallery entry.' });
   }
 });
@@ -1968,7 +1975,6 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
   } = normalizeCommercialProjectPayload(req.body);
 
   if (!name || !location || !landArea || !units) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Name, location, land area, and units are required.' });
   }
 
@@ -1976,17 +1982,11 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
     return res.status(400).json({ message: 'Please upload a cover image.' });
   }
 
-  try {
-    await compressUploadedImage(uploadedFile);
-  } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
-    return res.status(500).json({ message: 'Could not process commercial project image.' });
-  }
-
-  const imageUrl = `/uploads/commercial-projects/${uploadedFile.filename}`;
+  let imageUrl = '';
 
   try {
     const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile);
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug);
 
     const [result] = await pool.execute(
@@ -2021,7 +2021,7 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
       project: mapCommercialProjectRow(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages([imageUrl]);
     return res.status(500).json({ message: 'Could not create commercial project.' });
   }
 });
@@ -2031,7 +2031,6 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
   const uploadedFile = req.file || null;
 
   if (!Number.isInteger(projectId) || projectId <= 0) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Invalid commercial project id.' });
   }
 
@@ -2047,18 +2046,10 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
   } = normalizeCommercialProjectPayload(req.body);
 
   if (!name || !location || !landArea || !units) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Name, location, land area, and units are required.' });
   }
 
-  if (uploadedFile) {
-    try {
-      await compressUploadedImage(uploadedFile);
-    } catch (_error) {
-      removeUploadedFiles([uploadedFile]);
-      return res.status(500).json({ message: 'Could not process commercial project image.' });
-    }
-  }
+  let nextImageUrl = '';
 
   try {
     const pool = await getPool();
@@ -2073,13 +2064,14 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles([uploadedFile]);
       return res.status(404).json({ message: 'Commercial project not found.' });
     }
 
-    const nextImageUrl = uploadedFile
-      ? `/uploads/commercial-projects/${uploadedFile.filename}`
-      : existingRows[0].imageUrl;
+    nextImageUrl = existingRows[0].imageUrl;
+
+    if (uploadedFile) {
+      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile);
+    }
 
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug, projectId);
 
@@ -2128,7 +2120,9 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
       project: mapCommercialProjectRow(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    if (uploadedFile) {
+      removeStoredImages([nextImageUrl]);
+    }
     return res.status(500).json({ message: 'Could not update commercial project.' });
   }
 });
@@ -2193,41 +2187,37 @@ app.get('/api/admin/blogs', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (req, res) => {
   const uploadedFile = req.file || null;
+  const blogPayload = normalizeBlogPayload(req.body);
   const {
     title,
     excerpt,
     content,
-    imageUrl,
     category,
     author,
     preferredSlug,
     isPublished,
     publishedAt,
-  } = normalizeBlogPayload(req.body, uploadedFile);
+  } = blogPayload;
+  let imageUrl = '';
 
   if (!uploadedFile) {
     return res.status(400).json({ message: 'Please upload a cover image.' });
   }
 
   if (!title || !excerpt || !content || !category) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Title, excerpt, content, and category are required.' });
   }
 
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Published date is invalid.' });
   }
 
-  try {
-    await compressUploadedImage(uploadedFile);
-  } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
-    return res.status(500).json({ message: 'Could not process blog image.' });
-  }
+  let cleanupUrls = [];
 
   try {
     const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile);
+    cleanupUrls = imageUrl ? [imageUrl] : [];
     const slug = await createUniqueSlug(pool, title, preferredSlug);
 
     const [result] = await pool.execute(
@@ -2269,7 +2259,7 @@ app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (re
 
     return res.status(201).json({ message: 'Blog published successfully.', blog: mapBlogRow(rows[0], req) });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages(cleanupUrls);
     return res.status(500).json({ message: 'Could not save this blog.' });
   }
 });
@@ -2279,7 +2269,6 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
   const uploadedFile = req.file || null;
 
   if (!Number.isInteger(blogId) || blogId <= 0) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Invalid blog id.' });
   }
 
@@ -2293,26 +2282,17 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
     preferredSlug,
     isPublished,
     publishedAt,
-  } = normalizeBlogPayload(req.body, uploadedFile);
+  } = normalizeBlogPayload(req.body);
 
   if (!title || !excerpt || !content || !category) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Title, excerpt, content, and category are required.' });
   }
 
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Published date is invalid.' });
   }
 
-  if (uploadedFile) {
-    try {
-      await compressUploadedImage(uploadedFile);
-    } catch (_error) {
-      removeUploadedFiles([uploadedFile]);
-      return res.status(500).json({ message: 'Could not process blog image.' });
-    }
-  }
+  let cleanupUrls = [];
 
   try {
     const pool = await getPool();
@@ -2328,11 +2308,14 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles([uploadedFile]);
       return res.status(404).json({ message: 'Blog not found.' });
     }
 
-    const nextImageUrl = uploadedFile ? `/uploads/blogs/${uploadedFile.filename}` : existingRows[0].imageUrl;
+    const nextImageUrl = uploadedFile ? await storeUploadedMediaFile(pool, uploadedFile) : existingRows[0].imageUrl;
+
+    if (uploadedFile && nextImageUrl) {
+      cleanupUrls = [nextImageUrl];
+    }
 
     const slug = await createUniqueSlug(pool, title, preferredSlug, blogId);
 
@@ -2363,7 +2346,7 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
       ]
     );
 
-    if (uploadedFile) {
+    if (uploadedFile && existingRows[0].imageUrl) {
       removeStoredImages([existingRows[0].imageUrl]);
     }
 
@@ -2389,7 +2372,7 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
 
     return res.json({ message: 'Blog updated successfully.', blog: mapBlogRow(rows[0], req) });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages(cleanupUrls);
     return res.status(500).json({ message: 'Could not update this blog.' });
   }
 });

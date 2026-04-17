@@ -95,7 +95,18 @@ async function initDb() {
         INDEX idx_admin_sessions_admin_user_id (admin_user_id)
       )`,
 
-      // 5. Blogs
+      // 5. Media Assets
+      `CREATE TABLE IF NOT EXISTS media_assets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        file_name VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(120) NOT NULL,
+        file_size INT UNSIGNED NOT NULL,
+        data LONGBLOB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_media_assets_created_at (created_at)
+      )`,
+
+      // 6. Blogs
       `CREATE TABLE IF NOT EXISTS blogs (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -113,7 +124,7 @@ async function initDb() {
         INDEX idx_blogs_is_published (is_published)
       )`,
 
-      // 6. Gallery Entries
+      // 7. Gallery Entries
       `CREATE TABLE IF NOT EXISTS gallery_entries (
         id INT PRIMARY KEY AUTO_INCREMENT,
         gallery_type ENUM('independent', 'commercial') NOT NULL,
@@ -127,7 +138,7 @@ async function initDb() {
         INDEX idx_gallery_type_category (gallery_type, category)
       )`,
 
-      // 7. Commercial Projects
+      // 8. Commercial Projects
       `CREATE TABLE IF NOT EXISTS commercial_projects (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -144,7 +155,7 @@ async function initDb() {
         INDEX idx_commercial_projects_category (category)
       )`,
 
-      // 8. Villas
+      // 9. Villas
       `CREATE TABLE IF NOT EXISTS villas (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,

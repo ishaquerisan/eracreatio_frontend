@@ -81,22 +81,22 @@ const About = () => {
               className="grid grid-cols-2 gap-4"
             >
               <img
-                src="https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80"
+                src="/about/about1.png"
                 alt="About 1"
                 className="w-full h-auto object-cover rounded-2xl shadow-lg"
               />
               <img
-                src="https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=400&q=80"
+                src="/about/about2.png"
                 alt="About 2"
                 className="w-full h-auto object-cover rounded-2xl shadow-lg mt-8"
               />
               <img
-                src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80"
+                src="/about/about3.png"
                 alt="About 3"
                 className="w-full h-auto object-cover rounded-2xl shadow-lg"
               />
               <img
-                src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80"
+                src="/about/about4.png"
                 alt="About 4"
                 className="w-full h-auto object-cover rounded-2xl shadow-lg mt-8"
               />

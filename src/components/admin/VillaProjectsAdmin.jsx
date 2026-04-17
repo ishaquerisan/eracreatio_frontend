@@ -1152,7 +1152,7 @@ function VillaProjectsAdmin({ token }) {
                 <div className="flex flex-wrap items-center gap-3">
                   <label
                     htmlFor="villa-logo-upload"
-                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     {form.id ? 'Replace Project Logo' : 'Choose Project Logo'}
                   </label>

@@ -38,6 +38,16 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   INDEX idx_admin_sessions_admin_user_id (admin_user_id)
 );
 
+CREATE TABLE IF NOT EXISTS media_assets (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  file_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL,
+  file_size INT UNSIGNED NOT NULL,
+  data LONGBLOB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_media_assets_created_at (created_at)
+);
+
 CREATE TABLE IF NOT EXISTS blogs (
   id INT PRIMARY KEY AUTO_INCREMENT,
   slug VARCHAR(180) NOT NULL UNIQUE,
