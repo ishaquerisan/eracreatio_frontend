@@ -34,6 +34,7 @@ const Home = () => {
           landArea: villa.acres || villa.overviewTotalLand || '-',
           units: villa.totalVillas || villa.overviewTotalUnits || '-',
           image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
+          logo: villa.projectLogo || villa.logo || '',
         }));
 
         if (isMounted) {
@@ -177,6 +178,11 @@ const Home = () => {
                           alt={project.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                         />
+                        {project.logo ? (
+                          <div className="absolute left-3 top-3 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-lg backdrop-blur-sm">
+                            <img src={project.logo} alt={`${project.name} logo`} className="h-8 w-16 object-contain md:h-10 md:w-20" />
+                          </div>
+                        ) : null}
                         <div className="absolute top-2 right-2">
                           <span className="px-2 py-1 rounded-sm text-[10px] md:text-xs font-bold bg-accent text-white uppercase tracking-wider">
                             {project.status}

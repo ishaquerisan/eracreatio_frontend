@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS villas (
   acres VARCHAR(80) NULL,
   total_villas VARCHAR(80) NULL,
   banner_image_url VARCHAR(500) NULL,
+  project_logo_url VARCHAR(500) NULL,
   status ENUM('draft', 'ongoing', 'upcoming', 'completed') NOT NULL DEFAULT 'draft',
   brochure_pdf_url VARCHAR(500) NULL,
   description LONGTEXT NULL,

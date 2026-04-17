@@ -14,6 +14,7 @@ function normalizeVillaCard(villa) {
     landArea: villa.acres || villa.overviewTotalLand || '-',
     units: villa.totalVillas || villa.overviewTotalUnits || '-',
     image: villa.bannerImage || villa.image || villa.images?.exterior?.[0] || '',
+    logo: villa.projectLogo || villa.logo || '',
   };
 }
 
@@ -135,6 +136,11 @@ const VillaProjects = () => {
                     alt={project.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
+                  {project.logo ? (
+                    <div className="absolute left-3 top-3 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-lg backdrop-blur-sm">
+                      <img src={project.logo} alt={`${project.name} logo`} className="h-10 w-20 object-contain sm:h-12 sm:w-24" />
+                    </div>
+                  ) : null}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute top-3 right-3">
                     <span className={`inline-flex items-center rounded-full px-4 py-1.5 text-xs font-semibold shadow-sm ${

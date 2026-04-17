@@ -1381,7 +1381,7 @@ const Admin = () => {
                     username: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#EF1C22] transition-all"
                 required
               />
             </div>
@@ -1398,7 +1398,7 @@ const Admin = () => {
                     password: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#EF1C22] transition-all"
                 required
               />
             </div>
@@ -1408,7 +1408,7 @@ const Admin = () => {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-[#C6A769] text-white py-3 rounded-xl hover:bg-[#b5955a] transition-colors disabled:opacity-70 mt-2"
+              className="w-full bg-[#EF1C22] text-white py-3 rounded-xl hover:bg-[#b5955a] transition-colors disabled:opacity-70 mt-2"
             >
               {isLoggingIn ? "Signing in..." : "Login"}
             </button>
@@ -1420,7 +1420,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-bgLight pt-8 sm:pt-12 pb-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <section className="bg-[#C6A769] text-white rounded-3xl p-6 sm:p-8 lg:p-5 shadow-xl">
+        <section className="bg-[#EF1C22] text-white rounded-3xl p-6 sm:p-8 lg:p-5 shadow-xl">
           <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="shrink-0">
@@ -1622,7 +1622,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenCommercialProjectForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Project
                   </button>
@@ -1750,7 +1750,7 @@ const Admin = () => {
                     <div className="flex flex-wrap items-center gap-3">
                       <label
                         htmlFor="commercial-project-image-upload"
-                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                       >
                         {commercialProjectForm.id
                           ? "Choose Replacement Cover Image"
@@ -1838,7 +1838,7 @@ const Admin = () => {
                   <button
                     type="submit"
                     disabled={isSavingCommercialProject}
-                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                    className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                   >
                     {isSavingCommercialProject
                       ? "Saving..."
@@ -1962,7 +1962,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenGalleryForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Gallery
                   </button>
@@ -2047,7 +2047,7 @@ const Admin = () => {
                     <div className="flex flex-wrap items-center gap-3">
                       <label
                         htmlFor="gallery-image-upload"
-                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                       >
                         {galleryForm.id
                           ? "Choose Replacement Images"
@@ -2148,7 +2148,7 @@ const Admin = () => {
                   <button
                     type="submit"
                     disabled={isSavingGalleryEntry}
-                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                    className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                   >
                     {isSavingGalleryEntry
                       ? "Saving..."
@@ -2262,7 +2262,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenBlogForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Article
                   </button>
@@ -2359,7 +2359,7 @@ const Admin = () => {
                       <div className="flex flex-wrap items-center gap-3">
                         <label
                           htmlFor="blog-cover-image-upload"
-                          className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                          className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                         >
                           {blogForm.id
                             ? "Choose Replacement Cover Image"
@@ -2497,7 +2497,7 @@ const Admin = () => {
                     <button
                       type="submit"
                       disabled={isSavingBlog}
-                      className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                      className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                     >
                       {isSavingBlog
                         ? "Saving..."
@@ -2693,7 +2693,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyBlogImageCrop}
                   disabled={isApplyingBlogCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#EF1C22] text-white disabled:opacity-70"
                 >
                   {isApplyingBlogCrop ? "Applying..." : "Apply Crop"}
                 </button>
@@ -2760,7 +2760,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyCommercialImageCrop}
                   disabled={isApplyingCommercialCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#EF1C22] text-white disabled:opacity-70"
                 >
                   {isApplyingCommercialCrop ? "Applying..." : "Apply Crop"}
                 </button>

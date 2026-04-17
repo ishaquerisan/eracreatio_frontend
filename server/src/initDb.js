@@ -153,6 +153,7 @@ async function initDb() {
         acres VARCHAR(80) NULL,
         total_villas VARCHAR(80) NULL,
         banner_image_url VARCHAR(500) NULL,
+        project_logo_url VARCHAR(500) NULL,
         status ENUM('draft', 'ongoing', 'completed') NOT NULL DEFAULT 'draft',
         brochure_pdf_url VARCHAR(500) NULL,
         description LONGTEXT NULL,
@@ -189,6 +190,17 @@ async function initDb() {
       `ALTER TABLE villas
        MODIFY status ENUM('draft', 'ongoing', 'upcoming', 'completed') NOT NULL DEFAULT 'draft'`,
     );
+
+    const [projectLogoColumns] = await pool.query(
+      `SHOW COLUMNS FROM villas LIKE 'project_logo_url'`
+    );
+
+    if (projectLogoColumns.length === 0) {
+      await pool.query(
+        `ALTER TABLE villas
+         ADD COLUMN project_logo_url VARCHAR(500) NULL AFTER banner_image_url`
+      );
+    }
 
     console.log("🚀 Database schema verified/initialized.");
     

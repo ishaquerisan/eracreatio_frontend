@@ -31,7 +31,7 @@ import {
 } from 'react-icons/fa6';
 
 const WIZARD_STEPS = [
-  { id: 'basic', title: 'Basic Data', helper: 'Identity, location, and banner image' },
+  { id: 'basic', title: 'Basic Data', helper: 'Identity, logo, location, and banner image' },
   { id: 'detailed', title: 'Detailed Info', helper: 'Status, brochure, description, charges, and video' },
   { id: 'gallery', title: 'Gallery', helper: 'Exterior and interior images' },
   { id: 'highlights', title: 'Project Highlights', helper: 'Short selling points' },
@@ -288,6 +288,10 @@ function createEmptyVillaForm() {
     bannerImageFile: null,
     bannerImagePreviewUrl: '',
     existingBannerImageUrl: '',
+    projectLogoFile: null,
+    projectLogoPreviewUrl: '',
+    existingProjectLogoUrl: '',
+    projectLogoName: '',
     brochurePdfFile: null,
     brochurePdfName: '',
     existingBrochurePdfUrl: '',
@@ -310,6 +314,7 @@ function mapVillaToForm(villa) {
     : {};
 
   const bannerImageUrl = villa.bannerImage || villa.image || '';
+  const projectLogoUrl = villa.projectLogo || villa.logo || '';
   const exteriorImages = Array.isArray(villa.images?.exterior)
     ? villa.images.exterior.filter((value) => value && value !== bannerImageUrl)
     : [];
@@ -365,6 +370,7 @@ function mapVillaToForm(villa) {
     existingAvailabilityChartPdfUrl: villa.availabilityChartPdfUrl || '',
     existingExteriorImages: exteriorImages,
     existingInteriorImages: interiorImages,
+    existingProjectLogoUrl: projectLogoUrl,
   };
 }
 
@@ -425,7 +431,9 @@ function VillaProjectsAdmin({ token }) {
   const [deletingVillaId, setDeletingVillaId] = useState(null);
   const [form, setForm] = useState(createEmptyVillaForm());
   const [amenityIconSearches, setAmenityIconSearches] = useState({});
+  const [editingAmenityIndex, setEditingAmenityIndex] = useState(null);
   const bannerInputRef = useRef(null);
+  const projectLogoInputRef = useRef(null);
   const brochureInputRef = useRef(null);
   const walkthroughVideoInputRef = useRef(null);
   const availabilityInputRef = useRef(null);
@@ -434,6 +442,7 @@ function VillaProjectsAdmin({ token }) {
   const exteriorInputRef = useRef(null);
   const interiorInputRef = useRef(null);
   const bannerPreviewRef = useRef('');
+  const projectLogoPreviewRef = useRef('');
   const exteriorPreviewRef = useRef([]);
   const interiorPreviewRef = useRef([]);
 
@@ -484,6 +493,14 @@ function VillaProjectsAdmin({ token }) {
   }, []);
 
   useEffect(() => {
+    projectLogoPreviewRef.current = form.projectLogoPreviewUrl;
+  }, [form.projectLogoPreviewUrl]);
+
+  useEffect(() => () => {
+    revokePreviewEntry({ previewUrl: projectLogoPreviewRef.current });
+  }, []);
+
+  useEffect(() => {
     exteriorPreviewRef.current = form.exteriorImages;
   }, [form.exteriorImages]);
 
@@ -502,6 +519,10 @@ function VillaProjectsAdmin({ token }) {
   const resetUploadInputs = () => {
     if (bannerInputRef.current) {
       bannerInputRef.current.value = '';
+    }
+
+    if (projectLogoInputRef.current) {
+      projectLogoInputRef.current.value = '';
     }
 
     if (brochureInputRef.current) {
@@ -536,6 +557,7 @@ function VillaProjectsAdmin({ token }) {
   const resetForm = () => {
     setForm((previous) => {
       revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+      revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
       revokePreviewEntryList(previous.exteriorImages);
       revokePreviewEntryList(previous.interiorImages);
       return createEmptyVillaForm();
@@ -548,6 +570,7 @@ function VillaProjectsAdmin({ token }) {
   const openNewForm = () => {
     resetForm();
     setMessage({ type: '', text: '' });
+    setEditingAmenityIndex(0);
     setShowForm(true);
   };
 
@@ -560,11 +583,13 @@ function VillaProjectsAdmin({ token }) {
   const editVilla = (villa) => {
     setForm((previous) => {
       revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+      revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
       revokePreviewEntryList(previous.exteriorImages);
       revokePreviewEntryList(previous.interiorImages);
       return mapVillaToForm(villa);
     });
     setAmenityIconSearches({});
+    setEditingAmenityIndex(null);
     resetUploadInputs();
     setMessage({ type: '', text: '' });
     setActiveStep(0);
@@ -584,6 +609,66 @@ function VillaProjectsAdmin({ token }) {
       ...previous,
       [field]: [...previous[field], emptyValue],
     }));
+  };
+
+  const addAmenityRow = () => {
+    setForm((previous) => ({
+      ...previous,
+      amenities: [...previous.amenities, { ...EMPTY_AMENITY }],
+    }));
+    setAmenityIconSearches({});
+    setEditingAmenityIndex(form.amenities.length);
+  };
+
+  const updateAmenityField = (index, field, value) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities[index] = { ...nextAmenities[index], [field]: value };
+      return { ...previous, amenities: nextAmenities };
+    });
+  };
+
+  const updateAmenityIcon = (index, iconKey) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities[index] = { ...nextAmenities[index], icon: iconKey };
+      return { ...previous, amenities: nextAmenities };
+    });
+  };
+
+  const openAmenityEditor = (index) => {
+    setEditingAmenityIndex(index);
+    setAmenityIconSearches((previous) => ({
+      ...previous,
+      [index]: previous[index] || '',
+    }));
+  };
+
+  const closeAmenityEditor = () => {
+    setEditingAmenityIndex(null);
+  };
+
+  const removeAmenityRow = (index) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities.splice(index, 1);
+      return {
+        ...previous,
+        amenities: nextAmenities.length > 0 ? nextAmenities : [{ ...EMPTY_AMENITY }],
+      };
+    });
+    setAmenityIconSearches({});
+    setEditingAmenityIndex((previous) => {
+      if (previous === index) {
+        return null;
+      }
+
+      if (previous !== null && previous > index) {
+        return previous - 1;
+      }
+
+      return previous;
+    });
   };
 
   const removeArrayRow = (field, index) => {
@@ -684,6 +769,44 @@ function VillaProjectsAdmin({ token }) {
       setMessage({ type: 'error', text: error.message || 'Could not compress selected image.' });
       if (bannerInputRef.current) {
         bannerInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleProjectLogoSelection = async (event) => {
+    const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!String(selectedFile.type || '').startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Only image files are allowed.' });
+      if (projectLogoInputRef.current) {
+        projectLogoInputRef.current.value = ''; 
+      }
+      return;
+    }
+
+    try {
+      const compressedFile = await compressImageFile(selectedFile);
+      const nextPreviewUrl = URL.createObjectURL(compressedFile);
+
+      setForm((previous) => {
+        revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
+        return {
+          ...previous,
+          projectLogoFile: compressedFile,
+          projectLogoPreviewUrl: nextPreviewUrl,
+          projectLogoName: compressedFile.name || selectedFile.name || 'selected file',
+        };
+      });
+
+      setMessage({ type: '', text: '' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Could not compress selected image.' });
+      if (projectLogoInputRef.current) {
+        projectLogoInputRef.current.value = '';
       }
     }
   };
@@ -832,6 +955,10 @@ function VillaProjectsAdmin({ token }) {
         payload.append('bannerImage', form.bannerImageFile);
       }
 
+      if (form.projectLogoFile) {
+        payload.append('projectLogo', form.projectLogoFile);
+      }
+
       if (form.brochurePdfFile) {
         payload.append('brochurePdf', form.brochurePdfFile);
       }
@@ -873,6 +1000,7 @@ function VillaProjectsAdmin({ token }) {
       if (savedVilla) {
         setForm((previous) => {
           revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+          revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
           revokePreviewEntryList(previous.exteriorImages);
           revokePreviewEntryList(previous.interiorImages);
           return mapVillaToForm(savedVilla);
@@ -1014,6 +1142,40 @@ function VillaProjectsAdmin({ token }) {
               </div>
               <div className="rounded-2xl border border-primary/15 bg-white p-4">
                 <input
+                  ref={projectLogoInputRef}
+                  id="villa-logo-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProjectLogoSelection}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label
+                    htmlFor="villa-logo-upload"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                  >
+                    {form.id ? 'Replace Project Logo' : 'Choose Project Logo'}
+                  </label>
+                  {form.projectLogoFile ? (
+                    <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{form.projectLogoName || form.projectLogoFile.name}</span>
+                  ) : form.existingProjectLogoUrl ? (
+                    <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">Current project logo is set</span>
+                  ) : (
+                    <span className="text-xs sm:text-sm text-textGrey">No logo selected</span>
+                  )}
+                </div>
+              </div>
+              {form.projectLogoPreviewUrl ? (
+                <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                  <img src={form.projectLogoPreviewUrl} alt="Project logo preview" className="h-24 w-full rounded-xl border border-gray-200 bg-white object-contain p-3" />
+                </div>
+              ) : form.existingProjectLogoUrl ? (
+                <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                  <img src={form.existingProjectLogoUrl} alt="Current project logo" className="h-24 w-full rounded-xl border border-gray-200 bg-white object-contain p-3" />
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                <input
                   ref={bannerInputRef}
                   id="villa-banner-upload"
                   type="file"
@@ -1024,7 +1186,7 @@ function VillaProjectsAdmin({ token }) {
                 <div className="flex flex-wrap items-center gap-3">
                   <label
                     htmlFor="villa-banner-upload"
-                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     {form.id ? 'Replace Banner Image' : 'Choose Banner Image'}
                   </label>
@@ -1194,7 +1356,7 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-exterior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
+                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
               </div>
               <div className="mt-4 space-y-4">
                 {renderGalleryImageGrid('Selected exterior images', form.exteriorImages, 'exteriorImages', 'Exterior image')}
@@ -1212,7 +1374,7 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-interior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
+                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
               </div>
               <div className="mt-4 space-y-4">
                 {renderGalleryImageGrid('Selected interior images', form.interiorImages, 'interiorImages', 'Interior image')}
@@ -1281,98 +1443,125 @@ function VillaProjectsAdmin({ token }) {
       case 'amenities':
         return (
           <div className="space-y-4">
-            {form.amenities.map((item, index) => (
-              <div key={`amenity-${index}`} className="rounded-2xl border border-gray-200 bg-bgLight/40 p-4 space-y-4">
-                <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 items-start">
-                  <input
-                    type="text"
-                    placeholder="Title"
-                    value={item.title}
-                    onChange={(event) => setForm((previous) => {
-                      const nextValues = [...previous.amenities];
-                      nextValues[index] = { ...nextValues[index], title: event.target.value };
-                      return { ...previous, amenities: nextValues };
-                    })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Description"
-                    value={item.desc}
-                    onChange={(event) => setForm((previous) => {
-                      const nextValues = [...previous.amenities];
-                      nextValues[index] = { ...nextValues[index], desc: event.target.value };
-                      return { ...previous, amenities: nextValues };
-                    })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  <button type="button" onClick={() => removeArrayRow('amenities', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
-                </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-textGrey">Add amenities as cards, then open any card to edit its title, description, and icon.</p>
+              <button type="button" onClick={addAmenityRow} className="rounded-full bg-[#EF1C22] px-4 py-2 text-sm text-white hover:bg-opacity-90">
+                Add amenity
+              </button>
+            </div>
 
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="relative flex-1">
-                      <FaMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-textGrey" />
-                      <input
-                        type="text"
-                        value={amenityIconSearches[index] || ''}
-                        onChange={(event) => setAmenityIconSearches((previous) => ({ ...previous, [index]: event.target.value }))}
-                        placeholder="Search icons"
-                        className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                      />
-                      {amenityIconSearches[index] ? (
-                        <button
-                          type="button"
-                          onClick={() => setAmenityIconSearches((previous) => ({ ...previous, [index]: '' }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-textGrey hover:text-primary"
-                          aria-label="Clear icon search"
-                        >
-                          <FaXmark />
-                        </button>
-                      ) : null}
-                    </div>
-                    {getAmenityIconOption(item.icon) ? (
-                      <div className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm text-primary">
-                        {(() => {
-                          const SelectedIcon = getAmenityIconOption(item.icon)?.Icon;
-                          return SelectedIcon ? <SelectedIcon className="text-accent" /> : null;
-                        })()}
-                        <span>{getAmenityIconOption(item.icon)?.label}</span>
+            <div className="grid gap-4">
+              {form.amenities.map((item, index) => {
+                const selectedIconOption = getAmenityIconOption(item.icon);
+                const SelectedIcon = selectedIconOption?.Icon;
+                const isEditing = editingAmenityIndex === index;
+
+                return (
+                  <div key={`amenity-${index}`} className="rounded-2xl border border-gray-200 bg-bgLight/40 p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white border border-gray-200 text-accent">
+                          {SelectedIcon ? <SelectedIcon className="text-xl" /> : <FaCheck className="text-base text-textGrey" />}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-primary truncate">{item.title || 'Untitled amenity'}</h5>
+                          <p className="text-sm text-textGrey line-clamp-2">{item.desc || 'No description set yet.'}</p>
+                          <p className="mt-1 text-xs text-textGrey">{selectedIconOption?.label || 'No icon selected'}</p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-textGrey px-1 py-3">No icon selected</div>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {filterAmenityIconOptions(amenityIconSearches[index] || '').map((option) => {
-                      const SelectedIcon = option.Icon;
-                      const isSelected = item.icon === option.key;
-
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => setForm((previous) => {
-                            const nextValues = [...previous.amenities];
-                            nextValues[index] = { ...nextValues[index], icon: option.key };
-                            return { ...previous, amenities: nextValues };
-                          })}
-                          className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10' : 'border-gray-200 bg-white hover:border-accent/50'}`}
-                        >
-                          <span className="flex items-center gap-2 min-w-0">
-                            <SelectedIcon className="shrink-0 text-accent" />
-                            <span className="truncate text-sm text-primary">{option.label}</span>
-                          </span>
-                          {isSelected ? <FaCheck className="shrink-0 text-accent" /> : null}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button type="button" onClick={() => (isEditing ? closeAmenityEditor() : openAmenityEditor(index))} className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs text-primary">
+                          {isEditing ? 'Done' : 'Edit'}
                         </button>
-                      );
-                    })}
+                        <button type="button" onClick={() => removeAmenityRow(index)} className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs text-red-600">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-4 border-t border-gray-200 pt-4">
+                        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-start">
+                          <input
+                            type="text"
+                            placeholder="Title"
+                            value={item.title}
+                            onChange={(event) => updateAmenityField(index, 'title', event.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Description"
+                            value={item.desc}
+                            onChange={(event) => updateAmenityField(index, 'desc', event.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                          />
+                          <button type="button" onClick={() => updateAmenityField(index, 'icon', '')} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">
+                            Clear icon
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="relative flex-1">
+                              <FaMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-textGrey" />
+                              <input
+                                type="text"
+                                value={amenityIconSearches[index] || ''}
+                                onChange={(event) => setAmenityIconSearches((previous) => ({ ...previous, [index]: event.target.value }))}
+                                placeholder="Search icons"
+                                className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                              />
+                              {amenityIconSearches[index] ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setAmenityIconSearches((previous) => ({ ...previous, [index]: '' }))}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-textGrey hover:text-primary"
+                                  aria-label="Clear icon search"
+                                >
+                                  <FaXmark />
+                                </button>
+                              ) : null}
+                            </div>
+                            {selectedIconOption ? (
+                              <div className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm text-primary">
+                                {SelectedIcon ? <SelectedIcon className="text-accent" /> : null}
+                                <span>{selectedIconOption.label}</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-textGrey px-1 py-3">No icon selected</div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {filterAmenityIconOptions(amenityIconSearches[index] || '').map((option) => {
+                              const AmenityIcon = option.Icon;
+                              const isSelected = item.icon === option.key;
+
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  onClick={() => updateAmenityIcon(index, option.key)}
+                                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10' : 'border-gray-200 bg-white hover:border-accent/50'}`}
+                                >
+                                  <span className="flex items-center gap-2 min-w-0">
+                                    <AmenityIcon className="shrink-0 text-accent" />
+                                    <span className="truncate text-sm text-primary">{option.label}</span>
+                                  </span>
+                                  {isSelected ? <FaCheck className="shrink-0 text-accent" /> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={() => addArrayRow('amenities', { ...EMPTY_AMENITY })} className="text-sm text-accent">Add amenity</button>
+                );
+              })}
+            </div>
           </div>
         );
       case 'availability':
@@ -1501,7 +1690,7 @@ function VillaProjectsAdmin({ token }) {
           <button
             type="button"
             onClick={openNewForm}
-            className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+            className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
           >
             Add New Villa
           </button>
@@ -1535,7 +1724,7 @@ function VillaProjectsAdmin({ token }) {
                 }}
                 disabled={index > 0 && !isBasicComplete}
                 className={`rounded-full px-3 py-2 text-xs transition-colors ${activeStep === index
-                    ? 'bg-[#C6A769] text-white'
+                    ? 'bg-[#EF1C22] text-white'
                     : index > 0 && !isBasicComplete
                       ? 'bg-white text-primary border border-gray-200 opacity-45 cursor-not-allowed'
                       : 'bg-white text-primary border border-gray-200'

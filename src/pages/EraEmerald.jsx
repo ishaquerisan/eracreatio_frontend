@@ -61,6 +61,7 @@ const emptyProject = {
   reraScanImageUrl: '',
   rera: '',
   otherCharges: '',
+  projectLogo: '',
   projectDetails: {},
   images: { exterior: [], interior: [] },
   highlights: [],
@@ -97,6 +98,7 @@ function mergeVillaProject(baseProject, nextProject) {
   mergedProject.otherCharges = nextProject?.otherCharges || baseProject.otherCharges || '';
   mergedProject.locationScanImageUrl = nextProject?.locationScanImageUrl || nextProject?.projectDetails?.locationScanImageUrl || baseProject.locationScanImageUrl || '';
   mergedProject.reraScanImageUrl = nextProject?.reraScanImageUrl || nextProject?.projectDetails?.reraScanImageUrl || baseProject.reraScanImageUrl || '';
+  mergedProject.projectLogo = nextProject?.projectLogo || nextProject?.logo || baseProject.projectLogo || baseProject.logo || '';
 
   return mergedProject;
 }
@@ -107,6 +109,10 @@ function normalizeText(value) {
 
 function getHeroImage(project) {
   return project?.bannerImage || project?.image || project?.images?.exterior?.[0] || '';
+}
+
+function getProjectLogo(project) {
+  return project?.projectLogo || project?.logo || '';
 }
 
 function getExteriorGalleryImages(project) {
@@ -371,6 +377,12 @@ const EraEmerald = () => {
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-32">
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }} className="max-w-3xl">
+            {getProjectLogo(project) ? (
+              <div className="mb-5 inline-flex rounded-2xl border border-white/20 bg-white/90 p-3 shadow-2xl backdrop-blur-sm">
+                <img src={getProjectLogo(project)} alt={`${project.name || 'Project'} logo`} className="h-16 w-auto max-w-[180px] object-contain sm:h-20 sm:max-w-[220px]" />
+              </div>
+            ) : null}
+            <br />
             {project.status ? (
               <span className="inline-block bg-accent text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-4 tracking-widest uppercase">
                 {project.status === 'completed' ? 'Completed Project' : project.status === 'draft' ? 'Draft Project' : 'Ongoing Project'}
