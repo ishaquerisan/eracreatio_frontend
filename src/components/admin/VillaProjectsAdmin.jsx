@@ -38,7 +38,7 @@ const WIZARD_STEPS = [
   { id: 'details', title: 'Project Details', helper: 'Structured specs for the public page' },
   { id: 'amenities', title: 'Amenities & Features', helper: 'Custom amenity rows' },
   { id: 'availability', title: 'Availability Chart', helper: 'PDF upload' },
-  { id: 'location', title: 'Location & Legal', helper: 'Map link, scan images, advantages, and charges' },
+  { id: 'location', title: 'Location & Legal', helper: ' ' },
   { id: 'review', title: 'Review', helper: 'Check everything before saving' },
 ];
 
@@ -213,15 +213,6 @@ function countWords(value) {
     .filter(Boolean).length;
 }
 
-function limitWords(value, maxWords) {
-  const words = String(value || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  return words.slice(0, maxWords).join(' ');
-}
-
 function normalizeSlugValue(value) {
   return String(value || '')
     .toLowerCase()
@@ -230,6 +221,17 @@ function normalizeSlugValue(value) {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+function extractIframeSrc(value) {
+  const rawValue = String(value || '').trim();
+
+  if (!rawValue) {
+    return '';
+  }
+
+  const iframeSrcMatch = rawValue.match(/<iframe[^>]*\ssrc=["']([^"']+)["'][^>]*>/i);
+  return iframeSrcMatch?.[1] ? String(iframeSrcMatch[1]).trim() : '';
 }
 
 function createSafeVillaSlug(slugValue, fallbackValue) {
@@ -931,7 +933,8 @@ function VillaProjectsAdmin({ token }) {
       payload.append('configuration', form.configuration.trim());
       payload.append('startingPrice', form.startingPrice.trim());
       payload.append('reraNumber', form.reraNumber.trim());
-      payload.append('mapLocationUrl', form.mapLocationUrl.trim());
+      const mapEmbedSrc = extractIframeSrc(form.mapLocationUrl);
+      payload.append('mapLocationUrl', mapEmbedSrc);
       payload.append('otherCharges', form.otherCharges.trim());
       payload.append('projectDetails', JSON.stringify({
         projectName: form.name.trim(),
@@ -1578,33 +1581,32 @@ function VillaProjectsAdmin({ token }) {
           </div>
         );
       case 'location':
+        {
+          const mapEmbedSrc = extractIframeSrc(form.mapLocationUrl);
+
         return (
           <div className="space-y-4">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm text-primary">
                 <FaMapLocationDot className="text-accent" />
-                Paste the Google Maps share link
+                Paste Google Maps iframe code only
               </div>
-              <input
-                type="url"
-                placeholder="https://maps.app.goo.gl/... or a Google Maps place link"
+              <textarea
+                rows={3}
+                placeholder="Paste full iframe embed code from Google Maps"
                 value={form.mapLocationUrl}
                 onChange={(event) => setForm((previous) => ({ ...previous, mapLocationUrl: event.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
               <p className="text-xs text-textGrey">
-                In Google Maps, open the exact place, click Share, and paste the copied link here.
+                Simple step: open Google Maps, click Share, choose Embed a map, copy the iframe HTML, and paste it here.
               </p>
-              {form.mapLocationUrl ? (
-                <a
-                  href={form.mapLocationUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 text-accent text-sm"
-                >
-                  <FaLocationDot /> Open map link
-                </a>
+              {form.mapLocationUrl && !mapEmbedSrc ? (
+                <p className="text-xs text-red-600">
+                  Invalid input. Paste full iframe code containing a src attribute.
+                </p>
               ) : null}
+
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -1636,7 +1638,7 @@ function VillaProjectsAdmin({ token }) {
                 </p>
               </div>
             </div>
-            {form.locationAdvantages.map((item, index) => (
+            {/* {form.locationAdvantages.map((item, index) => (
               <div key={`advantage-${index}`} className="flex gap-3">
                 <input
                   type="text"
@@ -1648,9 +1650,10 @@ function VillaProjectsAdmin({ token }) {
                 <button type="button" onClick={() => removeArrayRow('locationAdvantages', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button>
+            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button> */}
           </div>
         );
+      }
       case 'review':
       default:
         return (
