@@ -138,19 +138,19 @@ export const teamMembers = [
   {
     name: "Majnaz V",
     role: "Civil Engineer",
-    designation: "Technical Lead",
+    designation: "Managing Principal",
     image: "/teamMembers/Majnaz%20v.png"
   },
   {
     name: "P M Junaid",
     role: "Civil Engineer",
-    designation: "Project Management",
+    designation: "Principal of Operations",
     image: "/teamMembers/P%20M%20Junaid.png"
   },
   {
     name: "Rafi",
     role: "Architect",
-    designation: "Design Head",
+    designation: "Principal Designer",
     image: "/teamMembers/Rafi.png"
   }
 ];
