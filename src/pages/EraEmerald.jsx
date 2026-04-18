@@ -20,7 +20,6 @@ import {
   FaLocationDot,
   FaMagnifyingGlass,
   FaMagnifyingGlassPlus,
-  FaMapLocationDot,
   FaPersonWalking,
   FaRoad,
   FaRulerCombined,
@@ -73,7 +72,7 @@ const emptyProject = {
 const SH = ({ label, title, light = false, left = false }) => (
   <div className={`mb-10 sm:mb-14 ${left ? '' : 'text-center'}`}>
     {label && <span className="text-accent text-xs font-semibold tracking-widest uppercase mb-3 block">{label}</span>}
-    <h2 className={`font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold ${light ? 'text-white' : 'text-primary'}`}>{title}</h2>
+    <h2 className={`max-w-full whitespace-normal [overflow-wrap:anywhere] font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight ${light ? 'text-white' : 'text-primary'}`}>{title}</h2>
     <div className={`w-14 h-0.5 bg-accent mt-4 ${left ? '' : 'mx-auto'}`} />
   </div>
 );
@@ -105,6 +104,60 @@ function mergeVillaProject(baseProject, nextProject) {
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function extractIframeSrc(value) {
+  const rawValue = normalizeText(value);
+
+  if (!rawValue) {
+    return '';
+  }
+
+  const iframeSrcMatch = rawValue.match(/<iframe[^>]*\ssrc=["']([^"']+)["'][^>]*>/i);
+  return iframeSrcMatch?.[1] ? normalizeText(iframeSrcMatch[1]) : '';
+}
+
+function getGoogleMapEmbedUrl(mapUrl) {
+  const rawUrl = extractIframeSrc(mapUrl) || normalizeText(mapUrl);
+
+  if (!rawUrl) {
+    return '';
+  }
+
+  const buildEmbedUrl = (value) => `https://www.google.com/maps?q=${encodeURIComponent(value)}&output=embed`;
+
+  try {
+    const parsedUrl = new URL(rawUrl);
+    const host = parsedUrl.hostname.toLowerCase();
+
+    if (parsedUrl.pathname.includes('/maps/embed')) {
+      return parsedUrl.toString();
+    }
+
+    if (host.includes('google.') || host.includes('goo.gl')) {
+      const qParam = parsedUrl.searchParams.get('q') || parsedUrl.searchParams.get('query');
+
+      if (qParam) {
+        return buildEmbedUrl(qParam);
+      }
+
+      const placeMatch = parsedUrl.pathname.match(/\/maps\/place\/([^/]+)/i);
+      if (placeMatch?.[1]) {
+        return buildEmbedUrl(decodeURIComponent(placeMatch[1]).replace(/\+/g, ' '));
+      }
+
+      const coordsMatch = rawUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (coordsMatch) {
+        return buildEmbedUrl(`${coordsMatch[1]},${coordsMatch[2]}`);
+      }
+
+      return buildEmbedUrl(rawUrl);
+    }
+  } catch {
+    return buildEmbedUrl(rawUrl);
+  }
+
+  return buildEmbedUrl(rawUrl);
 }
 
 function getHeroImage(project) {
@@ -311,6 +364,9 @@ const EraEmerald = () => {
     || locationAdvantages.length > 0,
   );
   const isVillaNotFound = /villa not found/i.test(loadError);
+  const mapInputUrl = extractIframeSrc(project.mapLocationUrl) || normalizeText(project.mapLocationUrl);
+  const mapEmbedUrl = getGoogleMapEmbedUrl(project.mapLocationUrl);
+  const mapPreviewUrl = mapEmbedUrl;
 
   const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(`Hi! I am interested in ${project.name || ''}.`)}`;
 
@@ -514,16 +570,13 @@ const EraEmerald = () => {
               ['Total Land Area', project.projectDetails?.totalLandArea || project.acres || project.overviewTotalLand || ''], ['Total Units', project.projectDetails?.totalUnits || project.totalVillas || project.overviewTotalUnits || ''],
               ['Configuration', project.projectDetails?.configuration || project.configuration || ''], ['Price', project.projectDetails?.price || project.price || ''],
               ['Status', project.projectDetails?.status || project.status || ''], ['RERA Number', project.projectDetails?.reraNumber || project.rera || ''],
+              ['Other Charges', project.projectDetails?.otherCharges || project.otherCharges || ''],
             ].map(([k, v], i) => (
               <div key={i} className={`flex flex-col sm:flex-row sm:items-center px-5 sm:px-8 py-4 sm:py-5 ${i % 2 === 0 ? 'bg-white' : 'bg-bgLight'}`}>
                 <span className="text-textGrey text-xs font-medium w-full sm:w-52 mb-1 sm:mb-0 uppercase tracking-wide">{k}</span>
                 <span className="text-primary font-semibold text-sm sm:text-base">{v}</span>
               </div>
             ))}
-            <div className="px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-gray-100">
-              <span className="text-textGrey text-xs font-medium uppercase tracking-wide block mb-1">Other Charges</span>
-              <span className="text-textGrey text-xs sm:text-sm leading-relaxed">{project.otherCharges}</span>
-            </div>
           </div>
         </div>
       </section>
@@ -592,18 +645,24 @@ const EraEmerald = () => {
             <div className="grid lg:grid-cols-5 gap-8 lg:gap-10">
               <div className="lg:col-span-3">
                 <div className="rounded-2xl overflow-hidden shadow-xl bg-gray-100 h-64 sm:h-80 lg:h-full min-h-[300px] flex items-center justify-center border border-gray-200">
-                  <div className="text-center text-textGrey p-6">
-                    <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
-                    <p className="font-semibold text-primary text-base mb-1">Google Map</p>
-                    <p className="text-sm text-textGrey">{project.location || ''}</p>
-                    {normalizeText(project.mapLocationUrl) ? (
-                      <a href={project.mapLocationUrl} target="_blank" rel="noopener noreferrer"
-                        className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
-                        Open in Maps
-                      </a>
-                    ) : null}
+                  <div className="h-full w-full">
+                    {mapPreviewUrl ? (
+                      <iframe
+                        src={mapPreviewUrl}
+                        title={`${project.name || 'Project'} location map`}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        className="h-full w-full border-0"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-center text-textGrey p-6">
+                        <p className="font-semibold text-primary text-base">Map preview not available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </div>
               <div className="lg:col-span-2 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
@@ -640,11 +699,7 @@ const EraEmerald = () => {
                         )}
                         <p className="text-xs font-semibold text-primary">{scan.label}</p>
                         <p className="text-xs text-textGrey mt-0.5">{scan.sub}</p>
-                        {scan.href ? (
-                          <a href={scan.href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-[11px] font-medium text-accent">
-                            Open link
-                          </a>
-                        ) : null}
+
                       </div>
                     );
                   })}

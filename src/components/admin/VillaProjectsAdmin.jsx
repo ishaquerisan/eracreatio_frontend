@@ -1638,7 +1638,7 @@ function VillaProjectsAdmin({ token }) {
                 </p>
               </div>
             </div>
-            {/* {form.locationAdvantages.map((item, index) => (
+             {form.locationAdvantages.map((item, index) => (
               <div key={`advantage-${index}`} className="flex gap-3">
                 <input
                   type="text"
@@ -1650,7 +1650,7 @@ function VillaProjectsAdmin({ token }) {
                 <button type="button" onClick={() => removeArrayRow('locationAdvantages', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button> */}
+            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button> 
           </div>
         );
       }
