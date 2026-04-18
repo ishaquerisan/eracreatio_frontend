@@ -151,7 +151,7 @@ export const teamMembers = [
     name: "Rafi",
     role: "Architect",
     designation: "Principal Designer",
-    image: "/teamMembers/Rafi.png"
+    image: "/teamMembers/rafi.png"
   }
 ];
 
