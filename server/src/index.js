@@ -302,22 +302,6 @@ async function compressImageBuffer(fileBuffer) {
     .toBuffer();
 }
 
-function getUploadTypeFolder(mimeType) {
-  if (mimeType.startsWith('image/')) {
-    return 'images';
-  }
-
-  if (mimeType.startsWith('video/')) {
-    return 'videos';
-  }
-
-  if (mimeType === 'application/pdf') {
-    return 'pdfs';
-  }
-
-  return 'files';
-}
-
 function getSafeFileExtension(fileName, fallback = '') {
   const extension = path.extname(String(fileName || '')).toLowerCase();
   return /^[a-z0-9.]{1,12}$/.test(extension) ? extension : fallback;
@@ -344,6 +328,17 @@ function getExtensionFromMimeType(mimeType) {
   }
 }
 
+function normalizeUploadScope(scope) {
+  const normalizedScope = String(scope || '').trim().toLowerCase();
+
+  if (!normalizedScope) {
+    return 'misc';
+  }
+
+  const allowedScopes = new Set(['blogs', 'commercial-projects', 'galleries', 'villas', 'misc']);
+  return allowedScopes.has(normalizedScope) ? normalizedScope : 'misc';
+}
+
 function getUploadAbsolutePathFromStoredUrl(value) {
   const normalizedStoredUrl = normalizeStoredReferenceUrl(value);
 
@@ -366,7 +361,7 @@ function getUploadAbsolutePathFromStoredUrl(value) {
   return absolutePath;
 }
 
-async function storeUploadedMediaFile(_pool, file) {
+async function storeUploadedMediaFile(_pool, file, uploadScope = 'misc') {
   if (!file || !file.buffer) {
     return '';
   }
@@ -383,7 +378,7 @@ async function storeUploadedMediaFile(_pool, file) {
   const now = new Date();
   const year = String(now.getFullYear());
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const folder = getUploadTypeFolder(mimeType);
+  const folder = normalizeUploadScope(uploadScope);
   const relativeDirectory = path.join(folder, year, month);
   const absoluteDirectory = path.join(UPLOADS_ROOT, relativeDirectory);
   const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension || ''}`;
@@ -396,7 +391,7 @@ async function storeUploadedMediaFile(_pool, file) {
   return getUploadUrl(relativeUploadPath);
 }
 
-async function storeUploadedMediaFiles(pool, files) {
+async function storeUploadedMediaFiles(pool, files, uploadScope = 'misc') {
   const storedUrls = [];
 
   for (const file of files || []) {
@@ -404,7 +399,7 @@ async function storeUploadedMediaFiles(pool, files) {
       continue;
     }
 
-    storedUrls.push(await storeUploadedMediaFile(pool, file));
+    storedUrls.push(await storeUploadedMediaFile(pool, file, uploadScope));
   }
 
   return storedUrls.filter(Boolean);
@@ -425,7 +420,7 @@ async function storeVillaUploadedMedia(pool, uploadedFiles = {}) {
   const cleanupUrls = [];
 
   const storeSingle = async (file) => {
-    const url = await storeUploadedMediaFile(pool, file);
+    const url = await storeUploadedMediaFile(pool, file, 'villas');
 
     if (url) {
       cleanupUrls.push(url);
@@ -1869,7 +1864,7 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
 
   try {
     const pool = await getPool();
-    imageUrls = await storeUploadedMediaFiles(pool, files);
+    imageUrls = await storeUploadedMediaFiles(pool, files, 'galleries');
     const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
 
     const [result] = await pool.execute(
@@ -1947,7 +1942,7 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
     let shouldDeleteExistingImages = false;
 
     if (files.length > 0) {
-      const uploadedImageUrls = await storeUploadedMediaFiles(pool, files);
+      const uploadedImageUrls = await storeUploadedMediaFiles(pool, files, 'galleries');
       nextImageUrls = [...uploadedImageUrls, '', ''].slice(0, 3);
       shouldDeleteExistingImages = true;
     }
@@ -2081,7 +2076,7 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
 
   try {
     const pool = await getPool();
-    imageUrl = await storeUploadedMediaFile(pool, uploadedFile);
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'commercial-projects');
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug);
 
     const [result] = await pool.execute(
@@ -2165,7 +2160,7 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
     nextImageUrl = existingRows[0].imageUrl;
 
     if (uploadedFile) {
-      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile);
+      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'commercial-projects');
     }
 
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug, projectId);
@@ -2311,7 +2306,7 @@ app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (re
 
   try {
     const pool = await getPool();
-    imageUrl = await storeUploadedMediaFile(pool, uploadedFile);
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'blogs');
     cleanupUrls = imageUrl ? [imageUrl] : [];
     const slug = await createUniqueSlug(pool, title, preferredSlug);
 
@@ -2406,7 +2401,7 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
       return res.status(404).json({ message: 'Blog not found.' });
     }
 
-    const nextImageUrl = uploadedFile ? await storeUploadedMediaFile(pool, uploadedFile) : existingRows[0].imageUrl;
+    const nextImageUrl = uploadedFile ? await storeUploadedMediaFile(pool, uploadedFile, 'blogs') : existingRows[0].imageUrl;
 
     if (uploadedFile && nextImageUrl) {
       cleanupUrls = [nextImageUrl];
