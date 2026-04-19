@@ -5,6 +5,7 @@ import {
   deleteAdminVilla,
   getAdminVillas,
   updateAdminVilla,
+  verifyAdminPassword,
 } from '../../services/api';
 import {
   FaBook,
@@ -434,6 +435,11 @@ function VillaProjectsAdmin({ token }) {
   const [form, setForm] = useState(createEmptyVillaForm());
   const [amenityIconSearches, setAmenityIconSearches] = useState({});
   const [editingAmenityIndex, setEditingAmenityIndex] = useState(null);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [passwordConfirmInput, setPasswordConfirmInput] = useState('');
+  const [passwordConfirmError, setPasswordConfirmError] = useState('');
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [pendingDeleteVillaId, setPendingDeleteVillaId] = useState(null);
   const bannerInputRef = useRef(null);
   const projectLogoInputRef = useRef(null);
   const brochureInputRef = useRef(null);
@@ -1028,30 +1034,61 @@ function VillaProjectsAdmin({ token }) {
     }
   };
 
-  const deleteVilla = async (villaId) => {
-    const confirmed = window.confirm('Delete this villa and all uploaded assets?');
+  const deleteVilla = (villaId) => {
+    setPendingDeleteVillaId(villaId);
+    setPasswordConfirmInput('');
+    setPasswordConfirmError('');
+    setShowPasswordConfirm(true);
+  };
 
-    if (!confirmed) {
+  const cancelPasswordConfirm = () => {
+    setShowPasswordConfirm(false);
+    setPasswordConfirmInput('');
+    setPasswordConfirmError('');
+    setPendingDeleteVillaId(null);
+  };
+
+  const confirmDeleteWithPassword = async (event) => {
+    event.preventDefault();
+    setPasswordConfirmError('');
+
+    if (!passwordConfirmInput.trim()) {
+      setPasswordConfirmError('Password is required.');
       return;
     }
 
-    setDeletingVillaId(villaId);
-    setMessage({ type: '', text: '' });
+    setIsVerifyingPassword(true);
 
     try {
-      await deleteAdminVilla(token, villaId);
+      await verifyAdminPassword(token, passwordConfirmInput);
+      
+      // Password verified, now delete the villa
+      setShowPasswordConfirm(false);
+      setPasswordConfirmInput('');
+      setIsVerifyingPassword(false);
+      
+      setDeletingVillaId(pendingDeleteVillaId);
+      setMessage({ type: '', text: '' });
 
-      if (form.id === villaId) {
-        closeForm();
+      try {
+        await deleteAdminVilla(token, pendingDeleteVillaId);
+
+        if (form.id === pendingDeleteVillaId) {
+          closeForm();
+        }
+
+        const data = await getAdminVillas(token);
+        setVillas(data.villas || []);
+        setMessage({ type: 'success', text: 'Villa deleted successfully.' });
+      } catch (error) {
+        setMessage({ type: 'error', text: error.message || 'Could not delete villa.' });
+      } finally {
+        setDeletingVillaId(null);
+        setPendingDeleteVillaId(null);
       }
-
-      const data = await getAdminVillas(token);
-      setVillas(data.villas || []);
-      setMessage({ type: 'success', text: 'Villa deleted successfully.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Could not delete villa.' });
-    } finally {
-      setDeletingVillaId(null);
+      setPasswordConfirmError(error.message || 'Password verification failed.');
+      setIsVerifyingPassword(false);
     }
   };
 
@@ -1835,6 +1872,55 @@ function VillaProjectsAdmin({ token }) {
         </table>
         {!isLoading && villas.length === 0 ? <p className="text-sm text-textGrey mt-3">No villas yet.</p> : null}
       </div>
+
+      {showPasswordConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-lg">
+            <h3 className="text-lg text-primary font-semibold mb-2">Confirm Deletion</h3>
+            <p className="text-sm text-textGrey mb-6">
+              To confirm deletion of this villa and all its assets, please enter your login password.
+            </p>
+            
+            <form onSubmit={confirmDeleteWithPassword} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={passwordConfirmInput}
+                  onChange={(event) => {
+                    setPasswordConfirmInput(event.target.value);
+                    setPasswordConfirmError('');
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                  disabled={isVerifyingPassword}
+                  autoFocus
+                />
+                {passwordConfirmError ? (
+                  <p className="text-xs text-red-600 mt-2">{passwordConfirmError}</p>
+                ) : null}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={cancelPasswordConfirm}
+                  disabled={isVerifyingPassword}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-300 text-sm text-textGrey disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingPassword}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+                >
+                  {isVerifyingPassword ? 'Verifying...' : 'Delete'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

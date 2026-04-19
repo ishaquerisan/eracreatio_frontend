@@ -93,7 +93,7 @@ export const commercialProjects = {
     {
       id: 'era-commercial-centre',
       name: "Era Commercial Centre",
-      location: "Kuttikattor, Calicut",
+      location: "Kuttikattoor, Calicut",
       status: "Ongoing",
       landArea: "0.8 Acres",
       units: "32 Units",
@@ -116,10 +116,10 @@ export const commercialProjects = {
 export const commercialGallery = {
   ongoing: [
     { id: 'cg-on-1', src: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80', location: 'Mavoor Road, Calicut', category: 'ongoing' },
-    { id: 'cg-on-2', src: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', location: 'Kuttikattor, Calicut', category: 'ongoing' },
+    { id: 'cg-on-2', src: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', location: 'Kuttikattoor, Calicut', category: 'ongoing' },
     { id: 'cg-on-3', src: 'https://images.unsplash.com/photo-1554435493-93422e8220c8?w=800&q=80', location: 'Mavoor Road, Calicut', category: 'ongoing' },
     { id: 'cg-on-4', src: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=800&q=80', location: 'Calicut', category: 'ongoing' },
-    { id: 'cg-on-5', src: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&q=80', location: 'Kuttikattor, Calicut', category: 'ongoing' },
+    { id: 'cg-on-5', src: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&q=80', location: 'Kuttikattoor, Calicut', category: 'ongoing' },
     { id: 'cg-on-6', src: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80', location: 'Calicut', category: 'ongoing' },
     { id: 'cg-on-7', src: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&q=80', location: 'Mavoor Road', category: 'ongoing' },
   ],
@@ -128,7 +128,7 @@ export const commercialGallery = {
     { id: 'cg-cp-2', src: 'https://images.unsplash.com/photo-1464938050520-ef2270bb8ce8?w=800&q=80', location: 'Calicut', category: 'completed' },
     { id: 'cg-cp-3', src: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80', location: 'Feroke', category: 'completed' },
     { id: 'cg-cp-4', src: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&q=80', location: 'Calicut', category: 'completed' },
-    { id: 'cg-cp-5', src: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80', location: 'Kuttikattor', category: 'completed' },
+    { id: 'cg-cp-5', src: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80', location: 'Kuttikattoor', category: 'completed' },
     { id: 'cg-cp-6', src: 'https://images.unsplash.com/photo-1590725140246-20acddc1ec6d?w=800&q=80', location: 'Calicut', category: 'completed' },
     { id: 'cg-cp-7', src: 'https://images.unsplash.com/photo-1565008447742-97f6f38c985c?w=800&q=80', location: 'Feroke', category: 'completed' },
   ],

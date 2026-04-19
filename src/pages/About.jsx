@@ -56,7 +56,7 @@ const About = () => {
               </h2>
               <div className="w-20 h-1 bg-accent mb-6"></div>
               <p className="text-textGrey text-lg leading-relaxed mb-6">
-                Founded in 2018 in Kuttikattor, Era Creatio Developers has quickly risen to become 
+                Founded in 2018 in Kuttikattoor, Era Creatio Developers has quickly risen to become 
                 a trusted name in Kerala's real estate sector. We pride ourselves on being a New Era 
                 construction partner—utilizing futuristic technologies while maintaining traditional 
                 values of trust and integrity.
@@ -68,7 +68,7 @@ const About = () => {
                 project we undertake becomes a landmark of quality.
               </p>
               <p className="text-textGrey text-lg leading-relaxed">
-                Today, with over 55 completed projects and 500+ happy families, we continue to push 
+                Today, with over 55 completed projects and 300+ happy families, we continue to push 
                 boundaries and redefine luxury living in Kerala.
               </p>
             </motion.div>

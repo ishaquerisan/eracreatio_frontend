@@ -98,6 +98,14 @@ export function getAdminProfile(token) {
   return request('/admin/me', { token });
 }
 
+export function verifyAdminPassword(token, password) {
+  return request('/admin/verify-password', {
+    method: 'POST',
+    token,
+    payload: { password },
+  });
+}
+
 export function getAdminNewsletterSubscriptions(token) {
   return request('/admin/newsletter-subscriptions', { token });
 }

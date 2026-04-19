@@ -1657,6 +1657,33 @@ app.post('/api/admin/logout', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/verify-password', requireAdmin, async (req, res) => {
+  const { password } = req.body || {};
+
+  if (!password) {
+    return res.status(400).json({ message: 'Password is required.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT password_hash AS passwordHash
+       FROM admin_users
+       WHERE id = ?
+       LIMIT 1`,
+      [req.admin.id]
+    );
+
+    if (rows.length === 0 || !verifyPassword(String(password), rows[0].passwordHash)) {
+      return res.status(401).json({ message: 'Invalid password.' });
+    }
+
+    return res.json({ message: 'Password verified successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not verify password.' });
+  }
+});
+
 app.get('/api/admin/me', requireAdmin, (req, res) => {
   return res.json({ admin: req.admin });
 });
