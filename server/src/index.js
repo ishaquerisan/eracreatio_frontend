@@ -1,8 +1,11 @@
 require('dotenv').config();
 
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const multer = require('multer');
+const path = require('path');
 const sharp = require('sharp');
 
 const { getPool } = require('./db');
@@ -18,11 +21,15 @@ const app = express();
 const PORT = Number(process.env.PORT || 5000);
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24;
 const MEDIA_URL_PREFIX = '/api/media/';
+const UPLOADS_URL_PREFIX = '/uploads/';
+const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
 const VILLA_STATUSES = new Set(['draft', 'ongoing', 'upcoming', 'completed']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
+
+fs.mkdirSync(UPLOADS_ROOT, { recursive: true });
 
 const galleryUpload = multer({
   storage: multer.memoryStorage(),
@@ -245,14 +252,14 @@ function normalizeStoredReferenceUrl(value) {
     return '';
   }
 
-  if (rawValue.startsWith('/api/media/')) {
+  if (rawValue.startsWith('/api/media/') || rawValue.startsWith('/uploads/')) {
     return rawValue;
   }
 
   try {
     const parsed = new URL(rawValue);
 
-    if (parsed.pathname.startsWith('/api/media/')) {
+    if (parsed.pathname.startsWith('/api/media/') || parsed.pathname.startsWith('/uploads/')) {
       return parsed.pathname;
     }
   } catch (_error) {
@@ -264,6 +271,11 @@ function normalizeStoredReferenceUrl(value) {
 
 function getMediaUrl(mediaId) {
   return `${MEDIA_URL_PREFIX}${mediaId}`;
+}
+
+function getUploadUrl(uploadPath) {
+  const normalizedPath = String(uploadPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  return `${UPLOADS_URL_PREFIX}${normalizedPath}`;
 }
 
 function getMediaIdFromStoredUrl(value) {
@@ -290,29 +302,98 @@ async function compressImageBuffer(fileBuffer) {
     .toBuffer();
 }
 
-async function storeUploadedMediaFile(pool, file) {
+function getUploadTypeFolder(mimeType) {
+  if (mimeType.startsWith('image/')) {
+    return 'images';
+  }
+
+  if (mimeType.startsWith('video/')) {
+    return 'videos';
+  }
+
+  if (mimeType === 'application/pdf') {
+    return 'pdfs';
+  }
+
+  return 'files';
+}
+
+function getSafeFileExtension(fileName, fallback = '') {
+  const extension = path.extname(String(fileName || '')).toLowerCase();
+  return /^[a-z0-9.]{1,12}$/.test(extension) ? extension : fallback;
+}
+
+function getExtensionFromMimeType(mimeType) {
+  const normalizedMimeType = String(mimeType || '').toLowerCase();
+
+  switch (normalizedMimeType) {
+    case 'application/pdf':
+      return '.pdf';
+    case 'video/mp4':
+      return '.mp4';
+    case 'video/quicktime':
+      return '.mov';
+    case 'video/webm':
+      return '.webm';
+    case 'video/x-msvideo':
+      return '.avi';
+    case 'video/x-matroska':
+      return '.mkv';
+    default:
+      return '';
+  }
+}
+
+function getUploadAbsolutePathFromStoredUrl(value) {
+  const normalizedStoredUrl = normalizeStoredReferenceUrl(value);
+
+  if (!normalizedStoredUrl.startsWith(UPLOADS_URL_PREFIX)) {
+    return '';
+  }
+
+  const relativeUploadPath = normalizedStoredUrl.slice(UPLOADS_URL_PREFIX.length).replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!relativeUploadPath) {
+    return '';
+  }
+
+  const resolvedRoot = path.resolve(UPLOADS_ROOT);
+  const absolutePath = path.resolve(resolvedRoot, relativeUploadPath);
+
+  if (!absolutePath.startsWith(resolvedRoot)) {
+    return '';
+  }
+
+  return absolutePath;
+}
+
+async function storeUploadedMediaFile(_pool, file) {
   if (!file || !file.buffer) {
     return '';
   }
 
   const mimeType = String(file.mimetype || '').toLowerCase();
   let data = Buffer.from(file.buffer);
-  let storedMimeType = mimeType || 'application/octet-stream';
-  let storedFileName = String(file.originalname || 'upload').trim() || 'upload';
+  let extension = getSafeFileExtension(file.originalname, getExtensionFromMimeType(mimeType));
 
   if (mimeType.startsWith('image/')) {
     data = await compressImageBuffer(file.buffer);
-    storedMimeType = 'image/jpeg';
-    storedFileName = `${storedFileName.replace(/\.[^/.]+$/, '') || 'image'}.jpg`;
+    extension = '.jpg';
   }
 
-  const [result] = await pool.execute(
-    `INSERT INTO media_assets (file_name, mime_type, file_size, data)
-     VALUES (?, ?, ?, ?)`,
-    [storedFileName, storedMimeType, data.length, data]
-  );
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const folder = getUploadTypeFolder(mimeType);
+  const relativeDirectory = path.join(folder, year, month);
+  const absoluteDirectory = path.join(UPLOADS_ROOT, relativeDirectory);
+  const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension || ''}`;
+  const relativeUploadPath = path.join(relativeDirectory, uniqueName);
+  const absoluteFilePath = path.join(UPLOADS_ROOT, relativeUploadPath);
 
-  return getMediaUrl(result.insertId);
+  await fs.promises.mkdir(absoluteDirectory, { recursive: true });
+  await fs.promises.writeFile(absoluteFilePath, data);
+
+  return getUploadUrl(relativeUploadPath);
 }
 
 async function storeUploadedMediaFiles(pool, files) {
@@ -566,16 +647,21 @@ function removeStoredImages(imageUrls) {
       cleanupTasks.push(
         getPool().then((pool) => pool.execute('DELETE FROM media_assets WHERE id = ?', [mediaId])).catch(() => null)
       );
+      continue;
     }
+
+    const uploadAbsolutePath = getUploadAbsolutePathFromStoredUrl(imageUrl);
+
+    if (!uploadAbsolutePath) {
+      continue;
+    }
+
+    cleanupTasks.push(fs.promises.unlink(uploadAbsolutePath).catch(() => null));
   }
 
   if (cleanupTasks.length > 0) {
     Promise.all(cleanupTasks).catch(() => null);
   }
-}
-
-function parseUploadPathFromStoredUrl(value) {
-  return normalizeStoredReferenceUrl(value);
 }
 
 function mapGalleryRowsToCollections(rows, req) {
@@ -671,25 +757,6 @@ function mapCommercialProjectRowsToCollections(rows, req) {
   return collections;
 }
 
-function parseUploadPathFromStoredUrl(value) {
-  return normalizeStoredReferenceUrl(value);
-}
-
-function removeStoredImages(imageUrls) {
-  for (const imageUrl of imageUrls || []) {
-    const uploadPath = parseUploadPathFromStoredUrl(imageUrl);
-
-    if (!uploadPath) {
-      continue;
-    }
-
-    const absolutePath = path.join(__dirname, '..', uploadPath.replace(/^\//, ''));
-    fs.promises.unlink(absolutePath).catch(() => {
-      // Ignore cleanup failures for already-removed files.
-    });
-  }
-}
-
 async function requireAdmin(req, res, next) {
   const sessionToken = extractBearerToken(req);
 
@@ -739,6 +806,7 @@ app.use(
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   })
 );
+app.use('/uploads', express.static(UPLOADS_ROOT));
 app.use(express.json());
 
 app.get('/api/media/:mediaId', async (req, res) => {
