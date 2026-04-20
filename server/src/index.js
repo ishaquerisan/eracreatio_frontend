@@ -289,15 +289,25 @@ function getMediaIdFromStoredUrl(value) {
   return Number.isInteger(mediaId) && mediaId > 0 ? mediaId : null;
 }
 
-async function compressImageBuffer(fileBuffer) {
-  return sharp(fileBuffer)
+async function compressImageBuffer(fileBuffer, options = {}) {
+  const outputType = String(options.outputType || 'jpeg').toLowerCase();
+
+  const basePipeline = sharp(fileBuffer)
     .rotate()
     .resize({
       width: IMAGE_MAX_DIMENSION,
       height: IMAGE_MAX_DIMENSION,
       fit: 'inside',
       withoutEnlargement: true,
-    })
+    });
+
+  if (outputType === 'png') {
+    return basePipeline
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
+      .toBuffer();
+  }
+
+  return basePipeline
     .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
     .toBuffer();
 }
@@ -361,7 +371,7 @@ function getUploadAbsolutePathFromStoredUrl(value) {
   return absolutePath;
 }
 
-async function storeUploadedMediaFile(_pool, file, uploadScope = 'misc') {
+async function storeUploadedMediaFile(_pool, file, uploadScope = 'misc', options = {}) {
   if (!file || !file.buffer) {
     return '';
   }
@@ -371,8 +381,13 @@ async function storeUploadedMediaFile(_pool, file, uploadScope = 'misc') {
   let extension = getSafeFileExtension(file.originalname, getExtensionFromMimeType(mimeType));
 
   if (mimeType.startsWith('image/')) {
-    data = await compressImageBuffer(file.buffer);
-    extension = '.jpg';
+    const shouldKeepPng = Boolean(options.keepPng)
+      && (mimeType === 'image/png' || mimeType === 'image/x-png' || extension === '.png');
+
+    data = await compressImageBuffer(file.buffer, {
+      outputType: shouldKeepPng ? 'png' : 'jpeg',
+    });
+    extension = shouldKeepPng ? '.png' : '.jpg';
   }
 
   const now = new Date();
@@ -419,8 +434,8 @@ async function storeVillaUploadedMedia(pool, uploadedFiles = {}) {
   };
   const cleanupUrls = [];
 
-  const storeSingle = async (file) => {
-    const url = await storeUploadedMediaFile(pool, file, 'villas');
+  const storeSingle = async (file, options = {}) => {
+    const url = await storeUploadedMediaFile(pool, file, 'villas', options);
 
     if (url) {
       cleanupUrls.push(url);
@@ -444,7 +459,7 @@ async function storeVillaUploadedMedia(pool, uploadedFiles = {}) {
   };
 
   fileUrls.bannerImageUrl = await storeSingle((uploadedFiles.bannerImage || [])[0]);
-  fileUrls.projectLogoUrl = await storeSingle((uploadedFiles.projectLogo || [])[0]);
+  fileUrls.projectLogoUrl = await storeSingle((uploadedFiles.projectLogo || [])[0], { keepPng: true });
   fileUrls.brochurePdfUrl = await storeSingle((uploadedFiles.brochurePdf || [])[0]);
   fileUrls.walkthroughVideoUrl = await storeSingle((uploadedFiles.walkthroughVideo || [])[0]);
   fileUrls.availabilityChartPdfUrl = await storeSingle((uploadedFiles.availabilityChartPdf || [])[0]);
@@ -798,7 +813,7 @@ async function requireAdmin(req, res, next) {
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL,
   })
 );
 app.use('/uploads', express.static(UPLOADS_ROOT));

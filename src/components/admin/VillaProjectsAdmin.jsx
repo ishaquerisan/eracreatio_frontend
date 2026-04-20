@@ -138,14 +138,21 @@ function loadImageElement(imageSrc) {
 }
 
 async function compressImageFile(file, options = {}) {
-  const { maxDimension = 1920, quality = 0.82 } = options;
+  const {
+    maxDimension = 1920,
+    quality = 0.82,
+    outputType = 'image/jpeg',
+    maxBytes = 1024 * 1024,
+  } = options;
+
+  if (file.size <= maxBytes && String(file.type || '').toLowerCase() === String(outputType || '').toLowerCase()) {
+    return file;
+  }
+
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const image = await loadImageElement(objectUrl);
-    const scale = Math.min(1, maxDimension / image.width, maxDimension / image.height);
-    const targetWidth = Math.max(1, Math.round(image.width * scale));
-    const targetHeight = Math.max(1, Math.round(image.height * scale));
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
@@ -153,11 +160,7 @@ async function compressImageFile(file, options = {}) {
       throw new Error('Could not process selected image.');
     }
 
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-    const blob = await new Promise((resolve, reject) => {
+    const createBlob = (mimeType, encoderQuality) => new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
         if (!result) {
           reject(new Error('Could not compress selected image.'));
@@ -165,11 +168,46 @@ async function compressImageFile(file, options = {}) {
         }
 
         resolve(result);
-      }, 'image/jpeg', quality);
+      }, mimeType, encoderQuality);
     });
 
-    const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
-    return new File([blob], `${baseName}-compressed.jpg`, { type: 'image/jpeg' });
+    let currentDimension = maxDimension;
+    let currentQuality = Math.min(0.92, Math.max(0.45, quality));
+    let lastBlob = null;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const scale = Math.min(1, currentDimension / image.width, currentDimension / image.height);
+      const targetWidth = Math.max(1, Math.round(image.width * scale));
+      const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      context.clearRect(0, 0, targetWidth, targetHeight);
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+      const blob = await createBlob(outputType, outputType === 'image/png' ? undefined : currentQuality);
+      lastBlob = blob;
+
+      if (blob.size <= maxBytes) {
+        const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
+        const extension = outputType === 'image/png' ? 'png' : 'jpg';
+        return new File([blob], `${baseName}-compressed.${extension}`, { type: outputType });
+      }
+
+      if (outputType !== 'image/png' && currentQuality > 0.52) {
+        currentQuality = Math.max(0.45, currentQuality - 0.08);
+      } else {
+        currentDimension = Math.max(240, Math.round(currentDimension * 0.84));
+      }
+    }
+
+    if (lastBlob && lastBlob.size <= maxBytes) {
+      const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
+      const extension = outputType === 'image/png' ? 'png' : 'jpg';
+      return new File([lastBlob], `${baseName}-compressed.${extension}`, { type: outputType });
+    }
+
+    throw new Error('Could not compress selected image below 1 MB. Please choose a smaller image.');
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -788,16 +826,20 @@ function VillaProjectsAdmin({ token }) {
       return;
     }
 
-    if (!String(selectedFile.type || '').startsWith('image/')) {
-      setMessage({ type: 'error', text: 'Only image files are allowed.' });
+    const normalizedType = String(selectedFile.type || '').toLowerCase();
+    const isPngType = normalizedType === 'image/png' || normalizedType === 'image/x-png';
+    const hasPngExtension = /\.png$/i.test(String(selectedFile.name || '').trim());
+
+    if (!isPngType && !hasPngExtension) {
+      setMessage({ type: 'error', text: 'Logo must be a PNG image.' });
       if (projectLogoInputRef.current) {
-        projectLogoInputRef.current.value = ''; 
+        projectLogoInputRef.current.value = '';
       }
       return;
     }
 
     try {
-      const compressedFile = await compressImageFile(selectedFile);
+      const compressedFile = await compressImageFile(selectedFile, { outputType: 'image/png' });
       const nextPreviewUrl = URL.createObjectURL(compressedFile);
 
       setForm((previous) => {
@@ -819,7 +861,7 @@ function VillaProjectsAdmin({ token }) {
     }
   };
 
-  const handleSingleFileSelection = (field, nameField, event) => {
+  const handleSingleFileSelection = async (field, nameField, event) => {
     const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
 
     if (!selectedFile) {
@@ -832,11 +874,31 @@ function VillaProjectsAdmin({ token }) {
       return;
     }
 
-    setForm((previous) => ({
-      ...previous,
-      [field]: selectedFile,
-      [nameField]: selectedFile.name || 'selected file',
-    }));
+    const shouldCompressImage = field === 'locationScanImageFile' || field === 'reraScanImageFile';
+
+    if (!shouldCompressImage) {
+      setForm((previous) => ({
+        ...previous,
+        [field]: selectedFile,
+        [nameField]: selectedFile.name || 'selected file',
+      }));
+      return;
+    }
+
+    try {
+      const compressedFile = await compressImageFile(selectedFile);
+
+      setForm((previous) => ({
+        ...previous,
+        [field]: compressedFile,
+        [nameField]: compressedFile.name || selectedFile.name || 'selected file',
+      }));
+
+      setMessage({ type: '', text: '' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Could not compress selected image.' });
+      event.target.value = '';
+    }
   };
 
   const handleMultiImageSelection = async (field, event) => {
@@ -922,6 +984,7 @@ function VillaProjectsAdmin({ token }) {
     setIsSaving(true);
 
     try {
+      const isFinalReviewStep = !isBasicOnly && activeStep === visibleSteps.length - 1;
       const nextStepIndex = getNextStepIndex(activeStep);
       const safeSlug = createSafeVillaSlug(form.slug, form.name);
       const payload = new FormData();
@@ -1021,12 +1084,24 @@ function VillaProjectsAdmin({ token }) {
         text: form.id ? 'Villa updated successfully.' : 'Villa created successfully.',
       });
 
-      if (!isBasicOnly && nextStepIndex > activeStep) {
+      if (isFinalReviewStep) {
+        window.alert(form.id ? 'Villa updated successfully.' : 'Villa created successfully.');
+        closeForm();
+      } else if (!isBasicOnly && nextStepIndex > activeStep) {
         setActiveStep(nextStepIndex);
       }
 
-      const data = await getAdminVillas(token);
-      setVillas(data.villas || []);
+      // Clear the save state as soon as persistence succeeds.
+      setIsSaving(false);
+
+      // Refresh list in the background so a slow fetch does not keep the form stuck in "Saving...".
+      getAdminVillas(token)
+        .then((data) => {
+          setVillas(data.villas || []);
+        })
+        .catch(() => {
+          // Keep success state because the save already completed.
+        });
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Could not save villa.' });
     } finally {
@@ -1185,7 +1260,7 @@ function VillaProjectsAdmin({ token }) {
                   ref={projectLogoInputRef}
                   id="villa-logo-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/png,.png"
                   onChange={handleProjectLogoSelection}
                   className="hidden"
                 />

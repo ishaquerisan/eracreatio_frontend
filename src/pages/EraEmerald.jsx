@@ -469,8 +469,12 @@ const EraEmerald = () => {
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
               {getProjectLogo(project) ? (
-                <div className="mb-5 inline-flex rounded-2xl border border-white/20 shadow-2xl backdrop-blur-sm">
-                  <img src={getProjectLogo(project)} alt={`${project.name || 'Project'} logo`} className="h-16 w-auto max-w-[180px] object-contain sm:h-20 sm:max-w-[220px]" />
+                <div className="mb-5 inline-flex">
+                  <img
+                    src={getProjectLogo(project)}
+                    alt={`${project.name || 'Project'} logo`}
+                    className="h-auto w-auto max-h-20 max-w-[220px] object-contain"
+                  />
                 </div>
               ) : null}
               <SH label={project.overviewTitle ? 'Project Overview' : ''} title={project.overviewTitle || ''} left />
