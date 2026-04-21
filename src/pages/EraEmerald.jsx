@@ -473,7 +473,7 @@ const EraEmerald = () => {
                   <img
                     src={getProjectLogo(project)}
                     alt={`${project.name || 'Project'} logo`}
-                    className="h-auto w-auto max-h-20 max-w-[220px] object-contain"
+                    className="h-auto w-auto max-h-[14vh] max-w-[220px] object-contain"
                   />
                 </div>
               ) : null}
