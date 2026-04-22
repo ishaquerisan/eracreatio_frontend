@@ -7,7 +7,7 @@ const slides = [
     id: 1,
     title: "Redefining the Art of Living.",
     subtitle: "Luxury Villa Communities in the heart of Kerala.",
-    image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80",
+    image: "/home/1.jpeg",
     cta: "Explore Villas",
     link: "/villa-projects"
   },
@@ -15,7 +15,7 @@ const slides = [
     id: 2,
     title: "Custom Homes, Built for Generations.",
     subtitle: "Bespoke Independent Residences tailored to your dreams.",
-    image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1920&q=80",
+    image: "/home/2.jpeg",
     cta: "View Residences",
     link: "/independent-residences"
   },
@@ -23,7 +23,7 @@ const slides = [
     id: 3,
     title: "Modern Spaces for Modern Business.",
     subtitle: "Iconic Commercial Developments with high ROI.",
-    image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1920&q=80",
+    image: "/home/3.jpeg",
     cta: "Discover Projects",
     link: "/commercial-projects"
   }

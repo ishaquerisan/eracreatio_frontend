@@ -328,14 +328,14 @@ const amenityIconMap = {
 };
 
 const engineeringItems = [
-  { icon: FaTrowelBricks, title: 'RCC Frame Structure', desc: 'Reinforced concrete construction for maximum strength and durability.' },
+  { icon: FaTrowelBricks, title: 'Foundation System', desc: 'Designed as per soil conditions using rubble or RCC footing on suitable strata for stability.' },
   { icon: FaCube, title: 'Premium Materials', desc: 'Only certified, high-grade materials sourced from trusted suppliers.' },
   { icon: FaRulerCombined, title: 'Precision Engineering', desc: 'Every dimension planned and executed with engineering accuracy.' },
   { icon: FaMagnifyingGlass, title: 'Quality Inspections', desc: 'Multi-stage quality checks at every phase of construction.' },
   { icon: FaDroplet, title: 'Waterproofing', desc: 'Advanced waterproofing systems for roofs, bathrooms, and basements.' },
   { icon: FaBolt, title: 'Electrical Systems', desc: 'Concealed wiring with branded fittings and safety-compliant installations.' },
   { icon: FaTemperatureHalf, title: 'Thermal Comfort', desc: 'Designed for natural ventilation and optimal thermal performance.' },
-  { icon: FaShieldHalved, title: 'Seismic Compliance', desc: 'Structures designed to meet seismic zone safety requirements.' },
+  { icon: FaShieldHalved, title: 'Branded Fixtures', desc: 'Sanitaryware and plumbing fittings from trusted brands for durability and performance.' },
 ];
 
 /* ── Main Page ── */

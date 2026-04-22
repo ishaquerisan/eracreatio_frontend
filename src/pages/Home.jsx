@@ -59,7 +59,7 @@ const Home = () => {
 
   const whyChooseUs = [
     { icon: FaMagnifyingGlass, title: 'Transparency', description: 'No hidden costs. Complete clarity in pricing.' },
-    { icon: FaScaleBalanced, title: 'Legality', description: '100% RERA and KMBR compliance.' },
+    { icon: FaScaleBalanced, title: 'Legality', description: '100% RERA,KMBR and KPBR compliance' },
     { icon: FaLeaf, title: 'Eco-Friendly', description: 'Sustainable building practices.' },
     { icon: FaBuilding, title: 'Engineering', description: 'Engineering-led project supervision.' }
   ];
