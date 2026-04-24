@@ -65,6 +65,21 @@ CREATE TABLE IF NOT EXISTS blogs (
   INDEX idx_blogs_is_published (is_published)
 );
 
+CREATE TABLE IF NOT EXISTS hero_slides (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  subtitle VARCHAR(500) NULL,
+  cta_text VARCHAR(120) NULL,
+  link_url VARCHAR(500) NULL,
+  image_url VARCHAR(500) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_hero_slides_is_active_sort_order (is_active, sort_order),
+  INDEX idx_hero_slides_updated_at (updated_at)
+);
+
 CREATE TABLE IF NOT EXISTS gallery_entries (
   id INT PRIMARY KEY AUTO_INCREMENT,
   gallery_type ENUM('independent', 'commercial') NOT NULL,

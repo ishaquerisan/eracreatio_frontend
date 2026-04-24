@@ -96,6 +96,10 @@ export function getPublicGalleries() {
   return request('/galleries');
 }
 
+export function getPublicHeroSlides() {
+  return request('/hero-slides');
+}
+
 export function getPublicCommercialProjects() {
   return request('/commercial-projects');
 }
@@ -165,6 +169,10 @@ export function getAdminGalleryEntries(token) {
   return request('/admin/gallery-entries', { token });
 }
 
+export function getAdminHeroSlides(token) {
+  return request('/admin/hero-slides', { token });
+}
+
 export function getAdminCommercialProjects(token) {
   return request('/admin/commercial-projects', { token });
 }
@@ -193,6 +201,37 @@ export function deleteAdminGalleryEntry(token, entryId) {
   return request(`/admin/gallery-entries/${entryId}`, {
     method: 'DELETE',
     token,
+  });
+}
+
+export function createAdminHeroSlide(token, payload) {
+  return request('/admin/hero-slides', {
+    method: 'POST',
+    token,
+    payload,
+  });
+}
+
+export function updateAdminHeroSlide(token, slideId, payload) {
+  return request(`/admin/hero-slides/${slideId}`, {
+    method: 'PUT',
+    token,
+    payload,
+  });
+}
+
+export function deleteAdminHeroSlide(token, slideId) {
+  return request(`/admin/hero-slides/${slideId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function reorderAdminHeroSlides(token, slideIds) {
+  return request('/admin/hero-slides/reorder', {
+    method: 'POST',
+    token,
+    payload: { slideIds },
   });
 }
 

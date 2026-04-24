@@ -26,6 +26,7 @@ const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
 const VILLA_STATUSES = new Set(['draft', 'ongoing', 'upcoming', 'completed']);
+const HERO_SLIDE_STATUSES = new Set(['active', 'inactive']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
@@ -345,7 +346,7 @@ function normalizeUploadScope(scope) {
     return 'misc';
   }
 
-  const allowedScopes = new Set(['blogs', 'commercial-projects', 'galleries', 'villas', 'misc']);
+  const allowedScopes = new Set(['blogs', 'commercial-projects', 'galleries', 'hero-slides', 'villas', 'misc']);
   return allowedScopes.has(normalizedScope) ? normalizedScope : 'misc';
 }
 
@@ -752,6 +753,67 @@ function mapCommercialProjectRow(row, req) {
   };
 }
 
+function normalizeHeroSlideStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return HERO_SLIDE_STATUSES.has(normalized) ? normalized : 'active';
+}
+
+function normalizeHeroSlidePayload(body) {
+  const payload = body || {};
+
+  return {
+    title: String(payload.title || '').trim(),
+    subtitle: String(payload.subtitle || '').trim(),
+    ctaText: String(payload.ctaText || '').trim(),
+    linkUrl: String(payload.linkUrl || '').trim(),
+    sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : 0,
+    isActive: normalizeHeroSlideStatus(payload.isActive) === 'active' ? 1 : 0,
+  };
+}
+
+function mapHeroSlideRow(row, req) {
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle || '',
+    ctaText: row.ctaText || '',
+    linkUrl: row.linkUrl || '',
+    imageUrl: normalizeStoredImageUrl(req, row.imageUrl),
+    sortOrder: Number(row.sortOrder || 0),
+    isActive: Boolean(row.isActive),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+async function reorderHeroSlides(pool, slideIds = []) {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (let index = 0; index < slideIds.length; index += 1) {
+      const slideId = Number(slideIds[index]);
+
+      if (!Number.isInteger(slideId) || slideId <= 0) {
+        continue;
+      }
+
+      await connection.execute(
+        'UPDATE hero_slides SET sort_order = ? WHERE id = ?',
+        [index, slideId]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 function mapCommercialProjectRowsToCollections(rows, req) {
   const collections = {
     ongoing: [],
@@ -862,6 +924,33 @@ app.get('/api/health', async (_req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ ok: false, message: 'Database connection failed.' });
+  }
+});
+
+app.get('/api/hero-slides', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE is_active = 1
+       ORDER BY sort_order ASC, updated_at DESC, id ASC
+       LIMIT 5`
+    );
+
+    return res.json({ slides: rows.map((row) => mapHeroSlideRow(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load hero slides right now.' });
   }
 });
 
@@ -2063,6 +2152,217 @@ app.get('/api/admin/commercial-projects', requireAdmin, async (req, res) => {
     return res.json({ projects: rows.map((row) => mapCommercialProjectRow(row, req)) });
   } catch (_error) {
     return res.status(500).json({ message: 'Could not load commercial projects.' });
+  }
+});
+
+app.get('/api/admin/hero-slides', requireAdmin, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       ORDER BY sort_order ASC, updated_at DESC, id ASC`
+    );
+
+    return res.json({ slides: rows.map((row) => mapHeroSlideRow(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load hero slides.' });
+  }
+});
+
+app.post('/api/admin/hero-slides/reorder', requireAdmin, async (req, res) => {
+  const slideIds = Array.isArray(req.body?.slideIds) ? req.body.slideIds : [];
+
+  if (slideIds.length === 0) {
+    return res.status(400).json({ message: 'Please provide slide order.' });
+  }
+
+  try {
+    const pool = await getPool();
+    await reorderHeroSlides(pool, slideIds);
+    return res.json({ message: 'Hero slide order updated successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not update hero slide order.' });
+  }
+});
+
+app.post('/api/admin/hero-slides', requireAdmin, commercialProjectUpload.single('image'), async (req, res) => {
+  const uploadedFile = req.file || null;
+  const { title, subtitle, ctaText, linkUrl, sortOrder, isActive } = normalizeHeroSlidePayload(req.body);
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required.' });
+  }
+
+  if (!uploadedFile) {
+    return res.status(400).json({ message: 'Please upload a hero image.' });
+  }
+
+  let imageUrl = '';
+
+  try {
+    const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'hero-slides');
+
+    const [result] = await pool.execute(
+      `INSERT INTO hero_slides
+        (title, subtitle, cta_text, link_url, image_url, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, subtitle || null, ctaText || null, linkUrl || null, imageUrl, sortOrder, isActive]
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [result.insertId]
+    );
+
+    return res.status(201).json({
+      message: 'Hero slide created successfully.',
+      slide: mapHeroSlideRow(rows[0], req),
+    });
+  } catch (_error) {
+    removeStoredImages([imageUrl]);
+    return res.status(500).json({ message: 'Could not create hero slide.' });
+  }
+});
+
+app.put('/api/admin/hero-slides/:slideId', requireAdmin, commercialProjectUpload.single('image'), async (req, res) => {
+  const slideId = Number(req.params.slideId);
+  const uploadedFile = req.file || null;
+
+  if (!Number.isInteger(slideId) || slideId <= 0) {
+    return res.status(400).json({ message: 'Invalid hero slide id.' });
+  }
+
+  const { title, subtitle, ctaText, linkUrl, sortOrder, isActive } = normalizeHeroSlidePayload(req.body);
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required.' });
+  }
+
+  let nextImageUrl = '';
+
+  try {
+    const pool = await getPool();
+    const [existingRows] = await pool.execute(
+      `SELECT
+         id,
+         image_url AS imageUrl
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ message: 'Hero slide not found.' });
+    }
+
+    nextImageUrl = existingRows[0].imageUrl;
+
+    if (uploadedFile) {
+      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'hero-slides');
+    }
+
+    await pool.execute(
+      `UPDATE hero_slides
+       SET
+         title = ?,
+         subtitle = ?,
+         cta_text = ?,
+         link_url = ?,
+         image_url = ?,
+         sort_order = ?,
+         is_active = ?
+       WHERE id = ?`,
+      [title, subtitle || null, ctaText || null, linkUrl || null, nextImageUrl, sortOrder, isActive, slideId]
+    );
+
+    if (uploadedFile) {
+      removeStoredImages([existingRows[0].imageUrl]);
+    }
+
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    return res.json({
+      message: 'Hero slide updated successfully.',
+      slide: mapHeroSlideRow(rows[0], req),
+    });
+  } catch (_error) {
+    if (uploadedFile) {
+      removeStoredImages([nextImageUrl]);
+    }
+    return res.status(500).json({ message: 'Could not update hero slide.' });
+  }
+});
+
+app.delete('/api/admin/hero-slides/:slideId', requireAdmin, async (req, res) => {
+  const slideId = Number(req.params.slideId);
+
+  if (!Number.isInteger(slideId) || slideId <= 0) {
+    return res.status(400).json({ message: 'Invalid hero slide id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         image_url AS imageUrl
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Hero slide not found.' });
+    }
+
+    await pool.execute('DELETE FROM hero_slides WHERE id = ?', [slideId]);
+    removeStoredImages([rows[0].imageUrl]);
+    return res.json({ message: 'Hero slide deleted successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not delete hero slide.' });
   }
 });
 

@@ -124,7 +124,23 @@ async function initDb() {
         INDEX idx_blogs_is_published (is_published)
       )`,
 
-      // 7. Gallery Entries
+      // 7. Hero Slides
+      `CREATE TABLE IF NOT EXISTS hero_slides (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        title VARCHAR(255) NOT NULL,
+        subtitle VARCHAR(500) NULL,
+        cta_text VARCHAR(120) NULL,
+        link_url VARCHAR(500) NULL,
+        image_url VARCHAR(500) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_hero_slides_is_active_sort_order (is_active, sort_order),
+        INDEX idx_hero_slides_updated_at (updated_at)
+      )`,
+
+      // 8. Gallery Entries
       `CREATE TABLE IF NOT EXISTS gallery_entries (
         id INT PRIMARY KEY AUTO_INCREMENT,
         gallery_type ENUM('independent', 'commercial') NOT NULL,
@@ -138,7 +154,7 @@ async function initDb() {
         INDEX idx_gallery_type_category (gallery_type, category)
       )`,
 
-      // 8. Commercial Projects
+      // 9. Commercial Projects
       `CREATE TABLE IF NOT EXISTS commercial_projects (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -155,7 +171,7 @@ async function initDb() {
         INDEX idx_commercial_projects_category (category)
       )`,
 
-      // 9. Villas
+      // 10. Villas
       `CREATE TABLE IF NOT EXISTS villas (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,

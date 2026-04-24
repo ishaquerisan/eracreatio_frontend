@@ -4,6 +4,7 @@ import Cropper from "react-easy-crop";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import JournalContent from "../components/JournalContent";
+import HeroSliderAdmin from "../components/admin/HeroSliderAdmin";
 import VillaProjectsAdmin from "../components/admin/VillaProjectsAdmin";
 import {
   adminLogin,
@@ -1572,6 +1573,17 @@ const Admin = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab("heroSlides")}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm ${
+                    activeTab === "heroSlides"
+                      ? "bg-bgLight text-primary"
+                      : "text-white"
+                  }`}
+                >
+                  Home Slider
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab("villas")}
                   className={`whitespace-nowrap px-4 py-2 rounded-full text-sm ${
                     activeTab === "villas"
@@ -2028,6 +2040,10 @@ const Admin = () => {
                 ) : null}
               </div>
             </div>
+          )}
+
+          {activeTab === "heroSlides" && !isLoadingData && (
+            <HeroSliderAdmin token={token} />
           )}
 
           {activeTab === "villas" && !isLoadingData && (

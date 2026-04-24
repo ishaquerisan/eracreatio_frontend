@@ -140,8 +140,16 @@ const Contact = () => {
               </div>
 
               {/* Map Placeholder */}
-              <div className="mt-6 sm:mt-8 bg-gray-300 rounded-xl sm:rounded-2xl h-48 sm:h-56 md:h-64 flex items-center justify-center">
-                <p className="text-textGrey text-sm sm:text-base">Google Map Integration</p>
+              <div className="mt-6 sm:mt-8 overflow-hidden rounded-xl sm:rounded-2xl border border-gray-200 bg-gray-100 shadow-sm">
+                <iframe
+                  title="Era Creatio Developers location"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d5268.1592835404435!2d75.87268457619864!3d11.268211488912053!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba65bff98fcb2d7%3A0xbfd28b60b8fd6f24!2sEra%20Creatio%20Developers%20LLP!5e1!3m2!1sen!2sin!4v1777037533202!5m2!1sen!2sin"
+                  className="h-48 w-full sm:h-56 md:h-64"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
             </motion.div>
 
