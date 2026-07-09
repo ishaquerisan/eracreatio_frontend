@@ -9,6 +9,8 @@
 
 # Production
 /build
+/server/uploads/**
+!/server/uploads/.gitkeep
 
 # Misc
 .DS_Store

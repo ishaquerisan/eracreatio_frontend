@@ -1,11 +1,11 @@
 require('dotenv').config();
 
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 const multer = require('multer');
+const path = require('path');
 const sharp = require('sharp');
 
 const { getPool } = require('./db');
@@ -20,31 +20,20 @@ const {
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24;
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-const GALLERY_UPLOADS_DIR = path.join(UPLOADS_DIR, 'galleries');
-const COMMERCIAL_PROJECT_UPLOADS_DIR = path.join(UPLOADS_DIR, 'commercial-projects');
-const VILLA_UPLOADS_DIR = path.join(UPLOADS_DIR, 'villas');
-const BLOG_UPLOADS_DIR = path.join(UPLOADS_DIR, 'blogs');
+const MEDIA_URL_PREFIX = '/api/media/';
+const UPLOADS_URL_PREFIX = '/uploads/';
+const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 const GALLERY_TYPES = new Set(['independent', 'commercial']);
 const GALLERY_CATEGORIES = new Set(['ongoing', 'completed']); 
 const VILLA_STATUSES = new Set(['draft', 'ongoing', 'upcoming', 'completed']);
+const HERO_SLIDE_STATUSES = new Set(['active', 'inactive']);
 const IMAGE_MAX_DIMENSION = 1920;
 const IMAGE_JPEG_QUALITY = 80;
 
-fs.mkdirSync(GALLERY_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(COMMERCIAL_PROJECT_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(VILLA_UPLOADS_DIR, { recursive: true });
-fs.mkdirSync(BLOG_UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(UPLOADS_ROOT, { recursive: true });
 
 const galleryUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, GALLERY_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -58,14 +47,7 @@ const galleryUpload = multer({
 });
 
 const commercialProjectUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, COMMERCIAL_PROJECT_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -79,31 +61,7 @@ const commercialProjectUpload = multer({
 });
 
 const villaUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, VILLA_UPLOADS_DIR);
-    },
-    filename: (_req, file, cb) => {
-      const mimeType = String(file.mimetype || '').toLowerCase();
-      let extension = '.bin';
-
-      if (mimeType.startsWith('image/')) {
-        extension = '.jpg';
-      } else if (mimeType === 'application/pdf') {
-        extension = '.pdf';
-      } else if (mimeType.startsWith('video/')) {
-        if (mimeType.includes('webm')) {
-          extension = '.webm';
-        } else if (mimeType.includes('quicktime')) {
-          extension = '.mov';
-        } else {
-          extension = '.mp4';
-        }
-      }
-
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension}`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 120 * 1024 * 1024,
   },
@@ -119,14 +77,7 @@ const villaUpload = multer({
 });
 
 const blogUpload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => {
-      cb(null, BLOG_UPLOADS_DIR);
-    },
-    filename: (_req, _file, cb) => {
-      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`);
-    },
-  }),
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 8 * 1024 * 1024,
   },
@@ -295,6 +246,232 @@ function normalizeStringArray(value) {
   return rawItems.map((item) => String(item || '').trim()).filter(Boolean);
 }
 
+function normalizeStoredReferenceUrl(value) {
+  const rawValue = String(value || '').trim();
+
+  if (!rawValue) {
+    return '';
+  }
+
+  if (rawValue.startsWith('/api/media/') || rawValue.startsWith('/uploads/')) {
+    return rawValue;
+  }
+
+  try {
+    const parsed = new URL(rawValue);
+
+    if (parsed.pathname.startsWith('/api/media/') || parsed.pathname.startsWith('/uploads/')) {
+      return parsed.pathname;
+    }
+  } catch (_error) {
+    return rawValue;
+  }
+
+  return rawValue;
+}
+
+function getMediaUrl(mediaId) {
+  return `${MEDIA_URL_PREFIX}${mediaId}`;
+}
+
+function getUploadUrl(uploadPath) {
+  const normalizedPath = String(uploadPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  return `${UPLOADS_URL_PREFIX}${normalizedPath}`;
+}
+
+function getMediaIdFromStoredUrl(value) {
+  const storedUrl = normalizeStoredReferenceUrl(value);
+
+  if (!storedUrl.startsWith('/api/media/')) {
+    return null;
+  }
+
+  const mediaId = Number(storedUrl.slice('/api/media/'.length));
+  return Number.isInteger(mediaId) && mediaId > 0 ? mediaId : null;
+}
+
+async function compressImageBuffer(fileBuffer, options = {}) {
+  const outputType = String(options.outputType || 'jpeg').toLowerCase();
+
+  const basePipeline = sharp(fileBuffer)
+    .rotate()
+    .resize({
+      width: IMAGE_MAX_DIMENSION,
+      height: IMAGE_MAX_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    });
+
+  if (outputType === 'png') {
+    return basePipeline
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
+      .toBuffer();
+  }
+
+  return basePipeline
+    .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
+function getSafeFileExtension(fileName, fallback = '') {
+  const extension = path.extname(String(fileName || '')).toLowerCase();
+  return /^[a-z0-9.]{1,12}$/.test(extension) ? extension : fallback;
+}
+
+function getExtensionFromMimeType(mimeType) {
+  const normalizedMimeType = String(mimeType || '').toLowerCase();
+
+  switch (normalizedMimeType) {
+    case 'application/pdf':
+      return '.pdf';
+    case 'video/mp4':
+      return '.mp4';
+    case 'video/quicktime':
+      return '.mov';
+    case 'video/webm':
+      return '.webm';
+    case 'video/x-msvideo':
+      return '.avi';
+    case 'video/x-matroska':
+      return '.mkv';
+    default:
+      return '';
+  }
+}
+
+function normalizeUploadScope(scope) {
+  const normalizedScope = String(scope || '').trim().toLowerCase();
+
+  if (!normalizedScope) {
+    return 'misc';
+  }
+
+  const allowedScopes = new Set(['blogs', 'commercial-projects', 'galleries', 'hero-slides', 'villas', 'misc']);
+  return allowedScopes.has(normalizedScope) ? normalizedScope : 'misc';
+}
+
+function getUploadAbsolutePathFromStoredUrl(value) {
+  const normalizedStoredUrl = normalizeStoredReferenceUrl(value);
+
+  if (!normalizedStoredUrl.startsWith(UPLOADS_URL_PREFIX)) {
+    return '';
+  }
+
+  const relativeUploadPath = normalizedStoredUrl.slice(UPLOADS_URL_PREFIX.length).replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!relativeUploadPath) {
+    return '';
+  }
+
+  const resolvedRoot = path.resolve(UPLOADS_ROOT);
+  const absolutePath = path.resolve(resolvedRoot, relativeUploadPath);
+
+  if (!absolutePath.startsWith(resolvedRoot)) {
+    return '';
+  }
+
+  return absolutePath;
+}
+
+async function storeUploadedMediaFile(_pool, file, uploadScope = 'misc', options = {}) {
+  if (!file || !file.buffer) {
+    return '';
+  }
+
+  const mimeType = String(file.mimetype || '').toLowerCase();
+  let data = Buffer.from(file.buffer);
+  let extension = getSafeFileExtension(file.originalname, getExtensionFromMimeType(mimeType));
+
+  if (mimeType.startsWith('image/')) {
+    const shouldKeepPng = Boolean(options.keepPng)
+      && (mimeType === 'image/png' || mimeType === 'image/x-png' || extension === '.png');
+
+    data = await compressImageBuffer(file.buffer, {
+      outputType: shouldKeepPng ? 'png' : 'jpeg',
+    });
+    extension = shouldKeepPng ? '.png' : '.jpg';
+  }
+
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const folder = normalizeUploadScope(uploadScope);
+  const relativeDirectory = path.join(folder, year, month);
+  const absoluteDirectory = path.join(UPLOADS_ROOT, relativeDirectory);
+  const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${extension || ''}`;
+  const relativeUploadPath = path.join(relativeDirectory, uniqueName);
+  const absoluteFilePath = path.join(UPLOADS_ROOT, relativeUploadPath);
+
+  await fs.promises.mkdir(absoluteDirectory, { recursive: true });
+  await fs.promises.writeFile(absoluteFilePath, data);
+
+  return getUploadUrl(relativeUploadPath);
+}
+
+async function storeUploadedMediaFiles(pool, files, uploadScope = 'misc') {
+  const storedUrls = [];
+
+  for (const file of files || []) {
+    if (!file) {
+      continue;
+    }
+
+    storedUrls.push(await storeUploadedMediaFile(pool, file, uploadScope));
+  }
+
+  return storedUrls.filter(Boolean);
+}
+
+async function storeVillaUploadedMedia(pool, uploadedFiles = {}) {
+  const fileUrls = {
+    bannerImageUrl: '',
+    projectLogoUrl: '',
+    brochurePdfUrl: '',
+    walkthroughVideoUrl: '',
+    availabilityChartPdfUrl: '',
+    locationScanImageUrl: '',
+    reraScanImageUrl: '',
+    exteriorImages: [],
+    interiorImages: [],
+  };
+  const cleanupUrls = [];
+
+  const storeSingle = async (file, options = {}) => {
+    const url = await storeUploadedMediaFile(pool, file, 'villas', options);
+
+    if (url) {
+      cleanupUrls.push(url);
+    }
+
+    return url;
+  };
+
+  const storeMultiple = async (files) => {
+    const urls = [];
+
+    for (const file of files || []) {
+      if (!file) {
+        continue;
+      }
+
+      urls.push(await storeSingle(file));
+    }
+
+    return urls.filter(Boolean);
+  };
+
+  fileUrls.bannerImageUrl = await storeSingle((uploadedFiles.bannerImage || [])[0]);
+  fileUrls.projectLogoUrl = await storeSingle((uploadedFiles.projectLogo || [])[0], { keepPng: true });
+  fileUrls.brochurePdfUrl = await storeSingle((uploadedFiles.brochurePdf || [])[0]);
+  fileUrls.walkthroughVideoUrl = await storeSingle((uploadedFiles.walkthroughVideo || [])[0]);
+  fileUrls.availabilityChartPdfUrl = await storeSingle((uploadedFiles.availabilityChartPdf || [])[0]);
+  fileUrls.locationScanImageUrl = await storeSingle((uploadedFiles.locationScanImage || [])[0]);
+  fileUrls.reraScanImageUrl = await storeSingle((uploadedFiles.reraScanImage || [])[0]);
+  fileUrls.exteriorImages = await storeMultiple(uploadedFiles.exteriorImages || []);
+  fileUrls.interiorImages = await storeMultiple(uploadedFiles.interiorImages || []);
+
+  return { fileUrls, cleanupUrls };
+}
+
 function normalizeVillaPayload(body) {
   const payload = body || {};
 
@@ -319,6 +496,8 @@ function normalizeVillaPayload(body) {
     projectHighlights: normalizeStringArray(payload.projectHighlights),
     locationAdvantages: normalizeStringArray(payload.locationAdvantages),
     amenities: normalizeAmenityItems(payload.amenities),
+    existingExteriorImages: parseJsonValue(payload.existingExteriorImages, undefined),
+    existingInteriorImages: parseJsonValue(payload.existingInteriorImages, undefined),
   };
 }
 
@@ -331,10 +510,13 @@ function mapVillaRow(row, req) {
   const locationAdvantages = normalizeStringArray(row.locationAdvantages);
 
   const bannerImage = normalizeStoredImageUrl(req, row.bannerImageUrl);
+  const projectLogo = normalizeStoredImageUrl(req, row.projectLogoUrl);
   const brochurePdfUrl = normalizeStoredImageUrl(req, row.brochurePdfUrl);
   const walkthroughVideoUrl = normalizeStoredImageUrl(req, row.walkthroughVideoUrl);
   const availabilityChartPdfUrl = normalizeStoredImageUrl(req, row.availabilityChartPdfUrl);
   const mapLocationUrl = normalizeTextOrFallback(row.mapLocationUrl, projectDetails.mapLocationUrl || '');
+  const locationScanImageUrl = normalizeStoredImageUrl(req, projectDetails.locationScanImageUrl || '');
+  const reraScanImageUrl = normalizeStoredImageUrl(req, projectDetails.reraScanImageUrl || '');
 
   return {
     id: row.id,
@@ -346,6 +528,8 @@ function mapVillaRow(row, req) {
     status: normalizeVillaStatus(row.status),
     bannerImage,
     image: bannerImage,
+    projectLogo,
+    logo: projectLogo,
     brochurePdfUrl,
     description: row.description || '',
     overviewTitle: row.overviewTitle || '',
@@ -358,6 +542,8 @@ function mapVillaRow(row, req) {
     walkthroughVideoUrl,
     availabilityChartPdfUrl,
     mapLocationUrl,
+    locationScanImageUrl,
+    reraScanImageUrl,
     otherCharges: row.otherCharges || '',
     reraNumber: row.reraNumber || projectDetails.reraNumber || '',
     projectDetails: {
@@ -370,6 +556,8 @@ function mapVillaRow(row, req) {
       price: projectDetails.price || row.startingPrice || '',
       status: normalizeVillaStatus(projectDetails.status || row.status),
       reraNumber: projectDetails.reraNumber || row.reraNumber || '',
+      locationScanImageUrl,
+      reraScanImageUrl,
     },
     images: {
       exterior: exteriorImages.length > 0 ? exteriorImages : bannerImage ? [bannerImage] : [],
@@ -388,30 +576,16 @@ function mapVillaRowForAdmin(row, req) {
   return mapVillaRow(row, req);
 }
 
-function getVillaFileUrls(uploadedFiles = {}) {
-  const toUrl = (file) => (file ? `/uploads/villas/${file.filename}` : '');
-
-  return {
-    bannerImageUrl: toUrl((uploadedFiles.bannerImage || [])[0]),
-    brochurePdfUrl: toUrl((uploadedFiles.brochurePdf || [])[0]),
-    walkthroughVideoUrl: toUrl((uploadedFiles.walkthroughVideo || [])[0]),
-    availabilityChartPdfUrl: toUrl((uploadedFiles.availabilityChartPdf || [])[0]),
-    exteriorImages: (uploadedFiles.exteriorImages || []).map((file) => `/uploads/villas/${file.filename}`),
-    interiorImages: (uploadedFiles.interiorImages || []).map((file) => `/uploads/villas/${file.filename}`),
-  };
-}
-
-function normalizeBlogPayload(body, uploadedFile = null) {
+function normalizeBlogPayload(body) {
   const payload = body || {};
   const isPublishedValue = String(payload.isPublished || '').trim().toLowerCase();
   const isPublished = isPublishedValue === 'false' || payload.isPublished === false ? 0 : 1;
-  const uploadedImageUrl = uploadedFile ? `/uploads/blogs/${uploadedFile.filename}` : '';
 
   return {
     title: String(payload.title || '').trim(),
     excerpt: String(payload.excerpt || '').trim(),
     content: String(payload.content || '').trim(),
-    imageUrl: uploadedImageUrl || String(payload.imageUrl || '').trim(),
+    imageUrl: String(payload.imageUrl || '').trim(),
     category: String(payload.category || '').trim() || 'General',
     author: String(payload.author || '').trim() || 'Era Creatio Editorial',
     preferredSlug: String(payload.slug || '').trim(),
@@ -457,58 +631,6 @@ function normalizeGalleryCategory(value) {
   return GALLERY_CATEGORIES.has(normalized) ? normalized : '';
 }
 
-function removeUploadedFiles(files) {
-  for (const file of files || []) {
-    if (!file || !file.path) {
-      continue;
-    }
-
-    fs.promises.unlink(file.path).catch(() => {
-      // Ignore cleanup failures to avoid masking the main error.
-    });
-  }
-}
-
-async function compressUploadedImage(file) {
-  if (!file || !file.path) {
-    return null;
-  }
-
-  const tempPath = `${file.path}.tmp`;
-
-  try {
-    await sharp(file.path)
-      .rotate()
-      .resize({
-        width: IMAGE_MAX_DIMENSION,
-        height: IMAGE_MAX_DIMENSION,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: IMAGE_JPEG_QUALITY, mozjpeg: true })
-      .toFile(tempPath);
-
-    await fs.promises.rename(tempPath, file.path);
-    return file;
-  } catch (error) {
-    await fs.promises.unlink(tempPath).catch(() => {
-      // Ignore cleanup failures from partial compression writes.
-    });
-    throw error;
-  }
-}
-
-async function compressUploadedImages(files) {
-  const normalized = Array.isArray(files) ? files.filter(Boolean) : [];
-
-  if (!normalized.length) {
-    return [];
-  }
-
-  await Promise.all(normalized.map((file) => compressUploadedImage(file)));
-  return normalized;
-}
-
 function normalizeStoredImageUrl(req, value) {
   const imageUrl = String(value || '').trim();
 
@@ -524,6 +646,33 @@ function normalizeStoredImageUrl(req, value) {
   const origin = publicOrigin || `${req.protocol}://${req.get('host')}`;
 
   return `${origin}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+}
+
+function removeStoredImages(imageUrls) {
+  const cleanupTasks = [];
+
+  for (const imageUrl of imageUrls || []) {
+    const mediaId = getMediaIdFromStoredUrl(imageUrl);
+
+    if (mediaId) {
+      cleanupTasks.push(
+        getPool().then((pool) => pool.execute('DELETE FROM media_assets WHERE id = ?', [mediaId])).catch(() => null)
+      );
+      continue;
+    }
+
+    const uploadAbsolutePath = getUploadAbsolutePathFromStoredUrl(imageUrl);
+
+    if (!uploadAbsolutePath) {
+      continue;
+    }
+
+    cleanupTasks.push(fs.promises.unlink(uploadAbsolutePath).catch(() => null));
+  }
+
+  if (cleanupTasks.length > 0) {
+    Promise.all(cleanupTasks).catch(() => null);
+  }
 }
 
 function mapGalleryRowsToCollections(rows, req) {
@@ -604,6 +753,67 @@ function mapCommercialProjectRow(row, req) {
   };
 }
 
+function normalizeHeroSlideStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return HERO_SLIDE_STATUSES.has(normalized) ? normalized : 'active';
+}
+
+function normalizeHeroSlidePayload(body) {
+  const payload = body || {};
+
+  return {
+    title: String(payload.title || '').trim(),
+    subtitle: String(payload.subtitle || '').trim(),
+    ctaText: String(payload.ctaText || '').trim(),
+    linkUrl: String(payload.linkUrl || '').trim(),
+    sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : 0,
+    isActive: normalizeHeroSlideStatus(payload.isActive) === 'active' ? 1 : 0,
+  };
+}
+
+function mapHeroSlideRow(row, req) {
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle || '',
+    ctaText: row.ctaText || '',
+    linkUrl: row.linkUrl || '',
+    imageUrl: normalizeStoredImageUrl(req, row.imageUrl),
+    sortOrder: Number(row.sortOrder || 0),
+    isActive: Boolean(row.isActive),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+async function reorderHeroSlides(pool, slideIds = []) {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (let index = 0; index < slideIds.length; index += 1) {
+      const slideId = Number(slideIds[index]);
+
+      if (!Number.isInteger(slideId) || slideId <= 0) {
+        continue;
+      }
+
+      await connection.execute(
+        'UPDATE hero_slides SET sort_order = ? WHERE id = ?',
+        [index, slideId]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 function mapCommercialProjectRowsToCollections(rows, req) {
   const collections = {
     ongoing: [],
@@ -617,45 +827,6 @@ function mapCommercialProjectRowsToCollections(rows, req) {
   }
 
   return collections;
-}
-
-function parseUploadPathFromStoredUrl(value) {
-  const imageUrl = String(value || '').trim();
-
-  if (!imageUrl) {
-    return '';
-  }
-
-  if (imageUrl.startsWith('/uploads/')) {
-    return imageUrl;
-  }
-
-  try {
-    const parsed = new URL(imageUrl);
-
-    if (parsed.pathname.startsWith('/uploads/')) {
-      return parsed.pathname;
-    }
-  } catch (_error) {
-    return '';
-  }
-
-  return '';
-}
-
-function removeStoredImages(imageUrls) {
-  for (const imageUrl of imageUrls || []) {
-    const uploadPath = parseUploadPathFromStoredUrl(imageUrl);
-
-    if (!uploadPath) {
-      continue;
-    }
-
-    const absolutePath = path.join(__dirname, '..', uploadPath.replace(/^\//, ''));
-    fs.promises.unlink(absolutePath).catch(() => {
-      // Ignore cleanup failures for already-removed files.
-    });
-  }
 }
 
 async function requireAdmin(req, res, next) {
@@ -704,11 +875,47 @@ async function requireAdmin(req, res, next) {
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_URL,
   })
 );
+app.use('/uploads', express.static(UPLOADS_ROOT));
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
+
+app.get('/api/media/:mediaId', async (req, res) => {
+  const mediaId = Number(req.params.mediaId);
+
+  if (!Number.isInteger(mediaId) || mediaId <= 0) {
+    return res.status(400).json({ message: 'Invalid media id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         file_name AS fileName,
+         mime_type AS mimeType,
+         file_size AS fileSize,
+         data
+       FROM media_assets
+       WHERE id = ?
+       LIMIT 1`,
+      [mediaId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Media asset not found.' });
+    }
+
+    const media = rows[0];
+    res.setHeader('Content-Type', media.mimeType || 'application/octet-stream');
+    res.setHeader('Content-Length', String(media.fileSize || media.data?.length || 0));
+    res.setHeader('Content-Disposition', `inline; filename="${String(media.fileName || 'asset').replace(/"/g, '')}"`);
+    return res.send(media.data);
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load media asset.' });
+  }
+});
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -717,6 +924,33 @@ app.get('/api/health', async (_req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     return res.status(500).json({ ok: false, message: 'Database connection failed.' });
+  }
+});
+
+app.get('/api/hero-slides', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE is_active = 1
+       ORDER BY sort_order ASC, updated_at DESC, id ASC
+       LIMIT 5`
+    );
+
+    return res.json({ slides: rows.map((row) => mapHeroSlideRow(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load hero slides right now.' });
   }
 });
 
@@ -817,6 +1051,7 @@ app.get('/api/villas', async (req, res) => {
          acres,
          total_villas AS totalVillas,
          banner_image_url AS bannerImageUrl,
+         project_logo_url AS projectLogoUrl,
          status,
          overview_title AS overviewTitle,
          overview_description AS overviewDescription,
@@ -863,6 +1098,7 @@ app.get('/api/villas/:idOrSlug', async (req, res) => {
          acres,
          total_villas AS totalVillas,
          banner_image_url AS bannerImageUrl,
+         project_logo_url AS projectLogoUrl,
          status,
          brochure_pdf_url AS brochurePdfUrl,
          description,
@@ -912,6 +1148,7 @@ app.get('/api/admin/villas', requireAdmin, async (req, res) => {
          acres,
          total_villas AS totalVillas,
          banner_image_url AS bannerImageUrl,
+         project_logo_url AS projectLogoUrl,
          status,
          brochure_pdf_url AS brochurePdfUrl,
          description,
@@ -948,60 +1185,51 @@ app.post(
   requireAdmin,
   villaUpload.fields([
     { name: 'bannerImage', maxCount: 1 },
+    { name: 'projectLogo', maxCount: 1 },
     { name: 'brochurePdf', maxCount: 1 },
     { name: 'walkthroughVideo', maxCount: 1 },
     { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'locationScanImage', maxCount: 1 },
+    { name: 'reraScanImage', maxCount: 1 },
     { name: 'exteriorImages', maxCount: 20 },
     { name: 'interiorImages', maxCount: 20 },
   ]),
   async (req, res) => {
     const uploadedFiles = req.files || {};
     const normalizedPayload = normalizeVillaPayload(req.body);
-    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
-    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
-    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
-    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
-    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
-    const interiorImageFiles = uploadedFiles.interiorImages || [];
-    const filesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
-
     if (!normalizedPayload.name || !normalizedPayload.location) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Name and location are required.' });
     }
 
-    try {
-      await Promise.all(filesToProcess.map((file) => compressUploadedImage(file)));
-    } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
-      return res.status(500).json({ message: 'Could not process villa images.' });
-    }
-
-    const fileUrls = getVillaFileUrls(uploadedFiles);
+    let cleanupUrls = [];
 
     try {
       const pool = await getPool();
+      const storedMedia = await storeVillaUploadedMedia(pool, uploadedFiles);
+      cleanupUrls = storedMedia.cleanupUrls;
+      const { fileUrls } = storedMedia;
       const slug = await createUniqueVillaSlug(pool, normalizedPayload.name, normalizedPayload.slug);
-      const projectDetails = normalizedPayload.projectDetails && Object.keys(normalizedPayload.projectDetails).length > 0
-        ? normalizedPayload.projectDetails
-        : {
-            projectName: normalizedPayload.name,
-            location: normalizedPayload.location,
-            totalLandArea: normalizedPayload.acres,
-            totalUnits: normalizedPayload.totalVillas,
-            configuration: normalizedPayload.configuration,
-            price: normalizedPayload.startingPrice,
-            status: normalizedPayload.status,
-            reraNumber: normalizedPayload.reraNumber,
-          };
+      const projectDetails = {
+        ...(normalizedPayload.projectDetails && typeof normalizedPayload.projectDetails === 'object' ? normalizedPayload.projectDetails : {}),
+        projectName: normalizedPayload.name,
+        location: normalizedPayload.location,
+        totalLandArea: normalizedPayload.acres,
+        totalUnits: normalizedPayload.totalVillas,
+        configuration: normalizedPayload.configuration,
+        price: normalizedPayload.startingPrice,
+        status: normalizedPayload.status,
+        reraNumber: normalizedPayload.reraNumber,
+        locationScanImageUrl: fileUrls.locationScanImageUrl || '',
+        reraScanImageUrl: fileUrls.reraScanImageUrl || '',
+      };
 
       const [result] = await pool.execute(
         `INSERT INTO villas
-          (slug, name, location, acres, total_villas, banner_image_url, status, brochure_pdf_url, description,
+          (slug, name, location, acres, total_villas, banner_image_url, project_logo_url, status, brochure_pdf_url, description,
            overview_title, overview_description, overview_total_land, overview_total_units, configuration, starting_price,
            walkthrough_video_url, exterior_images, interior_images, project_highlights, project_details, amenities,
            availability_chart_pdf_url, map_location_url, location_advantages, other_charges)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         [
           slug,
           normalizedPayload.name,
@@ -1009,6 +1237,7 @@ app.post(
           normalizedPayload.acres || null,
           normalizedPayload.totalVillas || null,
           fileUrls.bannerImageUrl || null,
+          fileUrls.projectLogoUrl || null,
           normalizedPayload.status,
           fileUrls.brochurePdfUrl || null,
           normalizedPayload.description || null,
@@ -1040,6 +1269,7 @@ app.post(
            acres,
            total_villas AS totalVillas,
            banner_image_url AS bannerImageUrl,
+           project_logo_url AS projectLogoUrl,
            status,
            brochure_pdf_url AS brochurePdfUrl,
            description,
@@ -1072,7 +1302,7 @@ app.post(
         villa: mapVillaRowForAdmin(rows[0], req),
       });
     } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeStoredImages(cleanupUrls);
       return res.status(500).json({ message: 'Could not create villa.' });
     }
   }
@@ -1083,9 +1313,12 @@ app.put(
   requireAdmin,
   villaUpload.fields([
     { name: 'bannerImage', maxCount: 1 },
+    { name: 'projectLogo', maxCount: 1 },
     { name: 'brochurePdf', maxCount: 1 },
     { name: 'walkthroughVideo', maxCount: 1 },
     { name: 'availabilityChartPdf', maxCount: 1 },
+    { name: 'locationScanImage', maxCount: 1 },
+    { name: 'reraScanImage', maxCount: 1 },
     { name: 'exteriorImages', maxCount: 20 },
     { name: 'interiorImages', maxCount: 20 },
   ]),
@@ -1093,17 +1326,19 @@ app.put(
     const villaId = Number(req.params.villaId);
     const uploadedFiles = req.files || {};
     const normalizedPayload = normalizeVillaPayload(req.body);
-    const bannerImageFile = (uploadedFiles.bannerImage || [])[0] || null;
-    const brochurePdfFile = (uploadedFiles.brochurePdf || [])[0] || null;
-    const walkthroughVideoFile = (uploadedFiles.walkthroughVideo || [])[0] || null;
-    const availabilityChartPdfFile = (uploadedFiles.availabilityChartPdf || [])[0] || null;
-    const exteriorImageFiles = uploadedFiles.exteriorImages || [];
-    const interiorImageFiles = uploadedFiles.interiorImages || [];
+    const hasBannerImage = Array.isArray(uploadedFiles.bannerImage) && uploadedFiles.bannerImage.length > 0;
+    const hasProjectLogo = Array.isArray(uploadedFiles.projectLogo) && uploadedFiles.projectLogo.length > 0;
+    const hasBrochurePdf = Array.isArray(uploadedFiles.brochurePdf) && uploadedFiles.brochurePdf.length > 0;
+    const hasWalkthroughVideo = Array.isArray(uploadedFiles.walkthroughVideo) && uploadedFiles.walkthroughVideo.length > 0;
+    const hasAvailabilityChartPdf = Array.isArray(uploadedFiles.availabilityChartPdf) && uploadedFiles.availabilityChartPdf.length > 0;
+    const hasLocationScanImage = Array.isArray(uploadedFiles.locationScanImage) && uploadedFiles.locationScanImage.length > 0;
+    const hasReraScanImage = Array.isArray(uploadedFiles.reraScanImage) && uploadedFiles.reraScanImage.length > 0;
 
     if (!Number.isInteger(villaId) || villaId <= 0) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
       return res.status(400).json({ message: 'Invalid villa id.' });
     }
+
+    let cleanupUrls = [];
 
     try {
       const pool = await getPool();
@@ -1116,6 +1351,7 @@ app.put(
            acres,
            total_villas AS totalVillas,
            banner_image_url AS bannerImageUrl,
+           project_logo_url AS projectLogoUrl,
            status,
            brochure_pdf_url AS brochurePdfUrl,
            description,
@@ -1133,6 +1369,7 @@ app.put(
            amenities,
            availability_chart_pdf_url AS availabilityChartPdfUrl,
            map_location_url AS mapLocationUrl,
+           project_details AS projectDetails,
            location_advantages AS locationAdvantages,
            other_charges AS otherCharges,
            created_at AS createdAt,
@@ -1144,7 +1381,6 @@ app.put(
       );
 
       if (existingRows.length === 0) {
-        removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
         return res.status(404).json({ message: 'Villa not found.' });
       }
 
@@ -1155,34 +1391,37 @@ app.put(
       const existingExteriorImages = normalizeStringArray(existingRow.exteriorImages);
       const existingInteriorImages = normalizeStringArray(existingRow.interiorImages);
       const existingProjectDetails = parseJsonValue(existingRow.projectDetails, {}) || {};
+      const retainedExteriorImages = Array.isArray(normalizedPayload.existingExteriorImages)
+        ? normalizedPayload.existingExteriorImages.map((value) => normalizeStoredReferenceUrl(value)).filter(Boolean)
+        : existingExteriorImages;
+      const retainedInteriorImages = Array.isArray(normalizedPayload.existingInteriorImages)
+        ? normalizedPayload.existingInteriorImages.map((value) => normalizeStoredReferenceUrl(value)).filter(Boolean)
+        : existingInteriorImages;
 
-      const imageFilesToProcess = [bannerImageFile, ...exteriorImageFiles, ...interiorImageFiles].filter(Boolean);
-
-      if (imageFilesToProcess.length > 0) {
-        try {
-          await Promise.all(imageFilesToProcess.map((file) => compressUploadedImage(file)));
-        } catch (_error) {
-          removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
-          return res.status(500).json({ message: 'Could not process villa images.' });
-        }
-      }
-
-      const fileUrls = getVillaFileUrls(uploadedFiles);
+      const storedMedia = await storeVillaUploadedMedia(pool, uploadedFiles);
+      cleanupUrls = storedMedia.cleanupUrls;
+      const { fileUrls } = storedMedia;
       const nextName = normalizedPayload.name || existingRow.name || '';
       const nextLocation = normalizedPayload.location || existingRow.location || '';
       const nextSlug = await createUniqueVillaSlug(pool, nextName, normalizedPayload.slug || existingRow.slug, villaId);
       const nextProjectDetails = Object.keys(normalizedPayload.projectDetails || {}).length > 0
-        ? normalizedPayload.projectDetails
+        ? {
+            ...existingProjectDetails,
+            ...normalizedPayload.projectDetails,
+          }
         : existingProjectDetails;
       const nextHighlights = normalizedPayload.projectHighlights.length > 0 ? normalizedPayload.projectHighlights : existingHighlights;
       const nextAmenities = normalizedPayload.amenities.length > 0 ? normalizedPayload.amenities : existingAmenities;
       const nextLocationAdvantages = normalizedPayload.locationAdvantages.length > 0 ? normalizedPayload.locationAdvantages : existingLocationAdvantages;
-      const nextExteriorImages = exteriorImageFiles.length > 0 ? fileUrls.exteriorImages : existingExteriorImages;
-      const nextInteriorImages = interiorImageFiles.length > 0 ? fileUrls.interiorImages : existingInteriorImages;
-      const nextBannerImageUrl = bannerImageFile ? fileUrls.bannerImageUrl : existingRow.bannerImageUrl;
-      const nextBrochurePdfUrl = brochurePdfFile ? fileUrls.brochurePdfUrl : existingRow.brochurePdfUrl;
-      const nextWalkthroughVideoUrl = walkthroughVideoFile ? fileUrls.walkthroughVideoUrl : existingRow.walkthroughVideoUrl;
-      const nextAvailabilityChartPdfUrl = availabilityChartPdfFile ? fileUrls.availabilityChartPdfUrl : existingRow.availabilityChartPdfUrl;
+      const nextExteriorImages = [...retainedExteriorImages, ...fileUrls.exteriorImages];
+      const nextInteriorImages = [...retainedInteriorImages, ...fileUrls.interiorImages];
+      const nextBannerImageUrl = fileUrls.bannerImageUrl || existingRow.bannerImageUrl;
+      const nextProjectLogoUrl = fileUrls.projectLogoUrl || existingRow.projectLogoUrl;
+      const nextBrochurePdfUrl = fileUrls.brochurePdfUrl || existingRow.brochurePdfUrl;
+      const nextWalkthroughVideoUrl = fileUrls.walkthroughVideoUrl || existingRow.walkthroughVideoUrl;
+      const nextAvailabilityChartPdfUrl = fileUrls.availabilityChartPdfUrl || existingRow.availabilityChartPdfUrl;
+      const nextLocationScanImageUrl = fileUrls.locationScanImageUrl || existingProjectDetails.locationScanImageUrl || '';
+      const nextReraScanImageUrl = fileUrls.reraScanImageUrl || existingProjectDetails.reraScanImageUrl || '';
       const nextDescription = normalizedPayload.description || existingRow.description || '';
       const nextOverviewTitle = normalizedPayload.overviewTitle || existingRow.overviewTitle || '';
       const nextOverviewDescription = normalizedPayload.overviewDescription || existingRow.overviewDescription || '';
@@ -1205,6 +1444,8 @@ app.put(
         price: nextProjectDetails.price || nextStartingPrice,
         status: nextProjectDetails.status || nextStatus,
         reraNumber: nextProjectDetails.reraNumber || normalizedPayload.reraNumber || existingProjectDetails.reraNumber || '',
+        locationScanImageUrl: nextLocationScanImageUrl,
+        reraScanImageUrl: nextReraScanImageUrl,
       };
 
       await pool.execute(
@@ -1216,6 +1457,7 @@ app.put(
            acres = ?,
            total_villas = ?,
            banner_image_url = ?,
+           project_logo_url = ?,
            status = ?,
            brochure_pdf_url = ?,
            description = ?,
@@ -1243,6 +1485,7 @@ app.put(
           nextAcres || null,
           nextTotalVillas || null,
           nextBannerImageUrl || null,
+          nextProjectLogoUrl || null,
           nextStatus,
           nextBrochurePdfUrl || null,
           nextDescription || null,
@@ -1266,28 +1509,43 @@ app.put(
         ]
       );
 
-      if (bannerImageFile && existingRow.bannerImageUrl) {
+      if (hasBannerImage && existingRow.bannerImageUrl) {
         removeStoredImages([existingRow.bannerImageUrl]);
       }
 
-      if (brochurePdfFile && existingRow.brochurePdfUrl) {
+      if (hasProjectLogo && existingRow.projectLogoUrl) {
+        removeStoredImages([existingRow.projectLogoUrl]);
+      }
+
+      if (hasBrochurePdf && existingRow.brochurePdfUrl) {
         removeStoredImages([existingRow.brochurePdfUrl]);
       }
 
-      if (walkthroughVideoFile && existingRow.walkthroughVideoUrl) {
+      if (hasWalkthroughVideo && existingRow.walkthroughVideoUrl) {
         removeStoredImages([existingRow.walkthroughVideoUrl]);
       }
 
-      if (availabilityChartPdfFile && existingRow.availabilityChartPdfUrl) {
+      if (hasAvailabilityChartPdf && existingRow.availabilityChartPdfUrl) {
         removeStoredImages([existingRow.availabilityChartPdfUrl]);
       }
 
-      if (exteriorImageFiles.length > 0 && existingExteriorImages.length > 0) {
-        removeStoredImages(existingExteriorImages);
+      if (hasLocationScanImage && existingProjectDetails.locationScanImageUrl) {
+        removeStoredImages([existingProjectDetails.locationScanImageUrl]);
       }
 
-      if (interiorImageFiles.length > 0 && existingInteriorImages.length > 0) {
-        removeStoredImages(existingInteriorImages);
+      if (hasReraScanImage && existingProjectDetails.reraScanImageUrl) {
+        removeStoredImages([existingProjectDetails.reraScanImageUrl]);
+      }
+
+      const removedExteriorImages = existingExteriorImages.filter((imageUrl) => !retainedExteriorImages.includes(imageUrl));
+      const removedInteriorImages = existingInteriorImages.filter((imageUrl) => !retainedInteriorImages.includes(imageUrl));
+
+      if (removedExteriorImages.length > 0) {
+        removeStoredImages(removedExteriorImages);
+      }
+
+      if (removedInteriorImages.length > 0) {
+        removeStoredImages(removedInteriorImages);
       }
 
       const [rows] = await pool.execute(
@@ -1299,6 +1557,7 @@ app.put(
            acres,
            total_villas AS totalVillas,
            banner_image_url AS bannerImageUrl,
+           project_logo_url AS projectLogoUrl,
            status,
            brochure_pdf_url AS brochurePdfUrl,
            description,
@@ -1331,7 +1590,7 @@ app.put(
         villa: mapVillaRowForAdmin(rows[0], req),
       });
     } catch (_error) {
-      removeUploadedFiles([bannerImageFile, brochurePdfFile, walkthroughVideoFile, availabilityChartPdfFile, ...exteriorImageFiles, ...interiorImageFiles]);
+      removeStoredImages(cleanupUrls);
       return res.status(500).json({ message: 'Could not update villa.' });
     }
   }
@@ -1350,11 +1609,13 @@ app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
       `SELECT
          id,
          banner_image_url AS bannerImageUrl,
+         project_logo_url AS projectLogoUrl,
          brochure_pdf_url AS brochurePdfUrl,
          walkthrough_video_url AS walkthroughVideoUrl,
          availability_chart_pdf_url AS availabilityChartPdfUrl,
          exterior_images AS exteriorImages,
-         interior_images AS interiorImages
+         interior_images AS interiorImages,
+         project_details AS projectDetails
        FROM villas
        WHERE id = ?
        LIMIT 1`,
@@ -1366,13 +1627,17 @@ app.delete('/api/admin/villas/:villaId', requireAdmin, async (req, res) => {
     }
 
     await pool.execute('DELETE FROM villas WHERE id = ?', [villaId]);
+    const projectDetails = parseJsonValue(rows[0].projectDetails, {}) || {};
     removeStoredImages([
       rows[0].bannerImageUrl,
+      rows[0].projectLogoUrl,
       rows[0].brochurePdfUrl,
       rows[0].walkthroughVideoUrl,
       rows[0].availabilityChartPdfUrl,
       ...normalizeStringArray(rows[0].exteriorImages),
       ...normalizeStringArray(rows[0].interiorImages),
+      projectDetails.locationScanImageUrl,
+      projectDetails.reraScanImageUrl,
     ]);
 
     return res.json({ message: 'Villa deleted successfully.' });
@@ -1559,6 +1824,33 @@ app.post('/api/admin/logout', requireAdmin, async (req, res) => {
   }
 });
 
+app.post('/api/admin/verify-password', requireAdmin, async (req, res) => {
+  const { password } = req.body || {};
+
+  if (!password) {
+    return res.status(400).json({ message: 'Password is required.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT password_hash AS passwordHash
+       FROM admin_users
+       WHERE id = ?
+       LIMIT 1`,
+      [req.admin.id]
+    );
+
+    if (rows.length === 0 || !verifyPassword(String(password), rows[0].passwordHash)) {
+      return res.status(401).json({ message: 'Invalid password.' });
+    }
+
+    return res.json({ message: 'Password verified successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not verify password.' });
+  }
+});
+
 app.get('/api/admin/me', requireAdmin, (req, res) => {
   return res.json({ admin: req.admin });
 });
@@ -1665,27 +1957,20 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
   const placeName = String(req.body?.placeName || '').trim();
 
   if (!galleryType || !category || !placeName) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Gallery type, category, and place name are required.' });
   }
 
   if (files.length < 1 || files.length > 3) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Please upload at least 1 and at most 3 images for each place.' });
   }
 
-  try {
-    await compressUploadedImages(files);
-  } catch (_error) {
-    removeUploadedFiles(files);
-    return res.status(500).json({ message: 'Could not process gallery images.' });
-  }
-
-  const imageUrls = files.map((file) => `/uploads/galleries/${file.filename}`);
-  const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
+  let imageUrls = [];
 
   try {
     const pool = await getPool();
+    imageUrls = await storeUploadedMediaFiles(pool, files, 'galleries');
+    const paddedImageUrls = [...imageUrls, '', ''].slice(0, 3);
+
     const [result] = await pool.execute(
       `INSERT INTO gallery_entries
         (gallery_type, category, place_name, image_1_url, image_2_url, image_3_url)
@@ -1715,7 +2000,7 @@ app.post('/api/admin/gallery-entries', requireAdmin, galleryUpload.array('images
       entry: mapGalleryRowForAdmin(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles(files);
+    removeStoredImages(imageUrls);
     return res.status(500).json({ message: 'Could not save gallery entry.' });
   }
 });
@@ -1728,25 +2013,15 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
   const placeName = String(req.body?.placeName || '').trim();
 
   if (!Number.isInteger(entryId) || entryId <= 0) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Invalid gallery entry id.' });
   }
 
   if (!galleryType || !category || !placeName) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Gallery type, category, and place name are required.' });
   }
 
   if (files.length > 3) {
-    removeUploadedFiles(files);
     return res.status(400).json({ message: 'Please upload at most 3 image files.' });
-  }
-
-  try {
-    await compressUploadedImages(files);
-  } catch (_error) {
-    removeUploadedFiles(files);
-    return res.status(500).json({ message: 'Could not process gallery images.' });
   }
 
   try {
@@ -1764,7 +2039,6 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles(files);
       return res.status(404).json({ message: 'Gallery entry not found.' });
     }
 
@@ -1772,7 +2046,7 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
     let shouldDeleteExistingImages = false;
 
     if (files.length > 0) {
-      const uploadedImageUrls = files.map((file) => `/uploads/galleries/${file.filename}`);
+      const uploadedImageUrls = await storeUploadedMediaFiles(pool, files, 'galleries');
       nextImageUrls = [...uploadedImageUrls, '', ''].slice(0, 3);
       shouldDeleteExistingImages = true;
     }
@@ -1816,7 +2090,6 @@ app.put('/api/admin/gallery-entries/:entryId', requireAdmin, galleryUpload.array
       entry: mapGalleryRowForAdmin(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles(files);
     return res.status(500).json({ message: 'Could not update gallery entry.' });
   }
 });
@@ -1882,6 +2155,217 @@ app.get('/api/admin/commercial-projects', requireAdmin, async (req, res) => {
   }
 });
 
+app.get('/api/admin/hero-slides', requireAdmin, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.query(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       ORDER BY sort_order ASC, updated_at DESC, id ASC`
+    );
+
+    return res.json({ slides: rows.map((row) => mapHeroSlideRow(row, req)) });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not load hero slides.' });
+  }
+});
+
+app.post('/api/admin/hero-slides/reorder', requireAdmin, async (req, res) => {
+  const slideIds = Array.isArray(req.body?.slideIds) ? req.body.slideIds : [];
+
+  if (slideIds.length === 0) {
+    return res.status(400).json({ message: 'Please provide slide order.' });
+  }
+
+  try {
+    const pool = await getPool();
+    await reorderHeroSlides(pool, slideIds);
+    return res.json({ message: 'Hero slide order updated successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not update hero slide order.' });
+  }
+});
+
+app.post('/api/admin/hero-slides', requireAdmin, commercialProjectUpload.single('image'), async (req, res) => {
+  const uploadedFile = req.file || null;
+  const { title, subtitle, ctaText, linkUrl, sortOrder, isActive } = normalizeHeroSlidePayload(req.body);
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required.' });
+  }
+
+  if (!uploadedFile) {
+    return res.status(400).json({ message: 'Please upload a hero image.' });
+  }
+
+  let imageUrl = '';
+
+  try {
+    const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'hero-slides');
+
+    const [result] = await pool.execute(
+      `INSERT INTO hero_slides
+        (title, subtitle, cta_text, link_url, image_url, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, subtitle || null, ctaText || null, linkUrl || null, imageUrl, sortOrder, isActive]
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [result.insertId]
+    );
+
+    return res.status(201).json({
+      message: 'Hero slide created successfully.',
+      slide: mapHeroSlideRow(rows[0], req),
+    });
+  } catch (_error) {
+    removeStoredImages([imageUrl]);
+    return res.status(500).json({ message: 'Could not create hero slide.' });
+  }
+});
+
+app.put('/api/admin/hero-slides/:slideId', requireAdmin, commercialProjectUpload.single('image'), async (req, res) => {
+  const slideId = Number(req.params.slideId);
+  const uploadedFile = req.file || null;
+
+  if (!Number.isInteger(slideId) || slideId <= 0) {
+    return res.status(400).json({ message: 'Invalid hero slide id.' });
+  }
+
+  const { title, subtitle, ctaText, linkUrl, sortOrder, isActive } = normalizeHeroSlidePayload(req.body);
+
+  if (!title) {
+    return res.status(400).json({ message: 'Title is required.' });
+  }
+
+  let nextImageUrl = '';
+
+  try {
+    const pool = await getPool();
+    const [existingRows] = await pool.execute(
+      `SELECT
+         id,
+         image_url AS imageUrl
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ message: 'Hero slide not found.' });
+    }
+
+    nextImageUrl = existingRows[0].imageUrl;
+
+    if (uploadedFile) {
+      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'hero-slides');
+    }
+
+    await pool.execute(
+      `UPDATE hero_slides
+       SET
+         title = ?,
+         subtitle = ?,
+         cta_text = ?,
+         link_url = ?,
+         image_url = ?,
+         sort_order = ?,
+         is_active = ?
+       WHERE id = ?`,
+      [title, subtitle || null, ctaText || null, linkUrl || null, nextImageUrl, sortOrder, isActive, slideId]
+    );
+
+    if (uploadedFile) {
+      removeStoredImages([existingRows[0].imageUrl]);
+    }
+
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         title,
+         subtitle,
+         cta_text AS ctaText,
+         link_url AS linkUrl,
+         image_url AS imageUrl,
+         sort_order AS sortOrder,
+         is_active AS isActive,
+         created_at AS createdAt,
+         updated_at AS updatedAt
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    return res.json({
+      message: 'Hero slide updated successfully.',
+      slide: mapHeroSlideRow(rows[0], req),
+    });
+  } catch (_error) {
+    if (uploadedFile) {
+      removeStoredImages([nextImageUrl]);
+    }
+    return res.status(500).json({ message: 'Could not update hero slide.' });
+  }
+});
+
+app.delete('/api/admin/hero-slides/:slideId', requireAdmin, async (req, res) => {
+  const slideId = Number(req.params.slideId);
+
+  if (!Number.isInteger(slideId) || slideId <= 0) {
+    return res.status(400).json({ message: 'Invalid hero slide id.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [rows] = await pool.execute(
+      `SELECT
+         id,
+         image_url AS imageUrl
+       FROM hero_slides
+       WHERE id = ?
+       LIMIT 1`,
+      [slideId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Hero slide not found.' });
+    }
+
+    await pool.execute('DELETE FROM hero_slides WHERE id = ?', [slideId]);
+    removeStoredImages([rows[0].imageUrl]);
+    return res.json({ message: 'Hero slide deleted successfully.' });
+  } catch (_error) {
+    return res.status(500).json({ message: 'Could not delete hero slide.' });
+  }
+});
+
 app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload.single('image'), async (req, res) => {
   const uploadedFile = req.file || null;
   const {
@@ -1896,7 +2380,6 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
   } = normalizeCommercialProjectPayload(req.body);
 
   if (!name || !location || !landArea || !units) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Name, location, land area, and units are required.' });
   }
 
@@ -1904,17 +2387,11 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
     return res.status(400).json({ message: 'Please upload a cover image.' });
   }
 
-  try {
-    await compressUploadedImage(uploadedFile);
-  } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
-    return res.status(500).json({ message: 'Could not process commercial project image.' });
-  }
-
-  const imageUrl = `/uploads/commercial-projects/${uploadedFile.filename}`;
+  let imageUrl = '';
 
   try {
     const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'commercial-projects');
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug);
 
     const [result] = await pool.execute(
@@ -1949,7 +2426,7 @@ app.post('/api/admin/commercial-projects', requireAdmin, commercialProjectUpload
       project: mapCommercialProjectRow(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages([imageUrl]);
     return res.status(500).json({ message: 'Could not create commercial project.' });
   }
 });
@@ -1959,7 +2436,6 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
   const uploadedFile = req.file || null;
 
   if (!Number.isInteger(projectId) || projectId <= 0) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Invalid commercial project id.' });
   }
 
@@ -1975,18 +2451,10 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
   } = normalizeCommercialProjectPayload(req.body);
 
   if (!name || !location || !landArea || !units) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Name, location, land area, and units are required.' });
   }
 
-  if (uploadedFile) {
-    try {
-      await compressUploadedImage(uploadedFile);
-    } catch (_error) {
-      removeUploadedFiles([uploadedFile]);
-      return res.status(500).json({ message: 'Could not process commercial project image.' });
-    }
-  }
+  let nextImageUrl = '';
 
   try {
     const pool = await getPool();
@@ -2001,13 +2469,14 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles([uploadedFile]);
       return res.status(404).json({ message: 'Commercial project not found.' });
     }
 
-    const nextImageUrl = uploadedFile
-      ? `/uploads/commercial-projects/${uploadedFile.filename}`
-      : existingRows[0].imageUrl;
+    nextImageUrl = existingRows[0].imageUrl;
+
+    if (uploadedFile) {
+      nextImageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'commercial-projects');
+    }
 
     const slug = await createUniqueCommercialProjectSlug(pool, name, preferredSlug, projectId);
 
@@ -2056,7 +2525,9 @@ app.put('/api/admin/commercial-projects/:projectId', requireAdmin, commercialPro
       project: mapCommercialProjectRow(rows[0], req),
     });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    if (uploadedFile) {
+      removeStoredImages([nextImageUrl]);
+    }
     return res.status(500).json({ message: 'Could not update commercial project.' });
   }
 });
@@ -2121,41 +2592,37 @@ app.get('/api/admin/blogs', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (req, res) => {
   const uploadedFile = req.file || null;
+  const blogPayload = normalizeBlogPayload(req.body);
   const {
     title,
     excerpt,
     content,
-    imageUrl,
     category,
     author,
     preferredSlug,
     isPublished,
     publishedAt,
-  } = normalizeBlogPayload(req.body, uploadedFile);
+  } = blogPayload;
+  let imageUrl = '';
 
   if (!uploadedFile) {
     return res.status(400).json({ message: 'Please upload a cover image.' });
   }
 
   if (!title || !excerpt || !content || !category) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Title, excerpt, content, and category are required.' });
   }
 
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Published date is invalid.' });
   }
 
-  try {
-    await compressUploadedImage(uploadedFile);
-  } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
-    return res.status(500).json({ message: 'Could not process blog image.' });
-  }
+  let cleanupUrls = [];
 
   try {
     const pool = await getPool();
+    imageUrl = await storeUploadedMediaFile(pool, uploadedFile, 'blogs');
+    cleanupUrls = imageUrl ? [imageUrl] : [];
     const slug = await createUniqueSlug(pool, title, preferredSlug);
 
     const [result] = await pool.execute(
@@ -2197,7 +2664,7 @@ app.post('/api/admin/blogs', requireAdmin, blogUpload.single('image'), async (re
 
     return res.status(201).json({ message: 'Blog published successfully.', blog: mapBlogRow(rows[0], req) });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages(cleanupUrls);
     return res.status(500).json({ message: 'Could not save this blog.' });
   }
 });
@@ -2207,7 +2674,6 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
   const uploadedFile = req.file || null;
 
   if (!Number.isInteger(blogId) || blogId <= 0) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Invalid blog id.' });
   }
 
@@ -2221,26 +2687,17 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
     preferredSlug,
     isPublished,
     publishedAt,
-  } = normalizeBlogPayload(req.body, uploadedFile);
+  } = normalizeBlogPayload(req.body);
 
   if (!title || !excerpt || !content || !category) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Title, excerpt, content, and category are required.' });
   }
 
   if (publishedAt && Number.isNaN(publishedAt.getTime())) {
-    removeUploadedFiles([uploadedFile]);
     return res.status(400).json({ message: 'Published date is invalid.' });
   }
 
-  if (uploadedFile) {
-    try {
-      await compressUploadedImage(uploadedFile);
-    } catch (_error) {
-      removeUploadedFiles([uploadedFile]);
-      return res.status(500).json({ message: 'Could not process blog image.' });
-    }
-  }
+  let cleanupUrls = [];
 
   try {
     const pool = await getPool();
@@ -2256,11 +2713,14 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
     );
 
     if (existingRows.length === 0) {
-      removeUploadedFiles([uploadedFile]);
       return res.status(404).json({ message: 'Blog not found.' });
     }
 
-    const nextImageUrl = uploadedFile ? `/uploads/blogs/${uploadedFile.filename}` : existingRows[0].imageUrl;
+    const nextImageUrl = uploadedFile ? await storeUploadedMediaFile(pool, uploadedFile, 'blogs') : existingRows[0].imageUrl;
+
+    if (uploadedFile && nextImageUrl) {
+      cleanupUrls = [nextImageUrl];
+    }
 
     const slug = await createUniqueSlug(pool, title, preferredSlug, blogId);
 
@@ -2291,7 +2751,7 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
       ]
     );
 
-    if (uploadedFile) {
+    if (uploadedFile && existingRows[0].imageUrl) {
       removeStoredImages([existingRows[0].imageUrl]);
     }
 
@@ -2317,7 +2777,7 @@ app.put('/api/admin/blogs/:blogId', requireAdmin, blogUpload.single('image'), as
 
     return res.json({ message: 'Blog updated successfully.', blog: mapBlogRow(rows[0], req) });
   } catch (_error) {
-    removeUploadedFiles([uploadedFile]);
+    removeStoredImages(cleanupUrls);
     return res.status(500).json({ message: 'Could not update this blog.' });
   }
 });

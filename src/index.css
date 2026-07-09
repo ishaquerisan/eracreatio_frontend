@@ -36,7 +36,7 @@ html {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #C6A769;
+  background: #EF1C22;
   border-radius: 5px;
 }
 
@@ -150,7 +150,7 @@ button, a {
 }
 
 .journal-rich-content blockquote {
-  border-left: 4px solid #c6a769;
+  border-left: 4px solid #EF1C22;
   background: #fff7e5;
   padding: 0.9rem 1.2rem;
   border-radius: 0 0.75rem 0.75rem 0;

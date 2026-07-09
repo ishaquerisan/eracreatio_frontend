@@ -4,6 +4,7 @@ import Cropper from "react-easy-crop";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import JournalContent from "../components/JournalContent";
+import HeroSliderAdmin from "../components/admin/HeroSliderAdmin";
 import VillaProjectsAdmin from "../components/admin/VillaProjectsAdmin";
 import {
   adminLogin,
@@ -202,6 +203,7 @@ async function createCroppedImageBlob(imageSrc, cropAreaPixels, options = {}) {
   const {
     maxDimension = IMAGE_MAX_DIMENSION,
     quality = IMAGE_COMPRESSION_QUALITY,
+    maxBytes = 1024 * 1024,
   } = options;
   const image = await loadImageElement(imageSrc);
   const canvas = document.createElement("canvas");
@@ -236,38 +238,86 @@ async function createCroppedImageBlob(imageSrc, cropAreaPixels, options = {}) {
     outputHeight,
   );
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("Could not crop selected image."));
-          return;
-        }
+  const createBlob = (sourceCanvas, encoderQuality) =>
+    new Promise((resolve, reject) => {
+      sourceCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Could not crop selected image."));
+            return;
+          }
 
-        resolve(blob);
-      },
-      "image/jpeg",
-      quality,
-    );
-  });
+          resolve(blob);
+        },
+        "image/jpeg",
+        encoderQuality,
+      );
+    });
+
+  let workingCanvas = canvas;
+  let width = outputWidth;
+  let height = outputHeight;
+  let currentQuality = Math.min(0.92, Math.max(0.45, quality));
+  let lastBlob = null;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const blob = await createBlob(workingCanvas, currentQuality);
+    lastBlob = blob;
+
+    if (blob.size <= maxBytes) {
+      return blob;
+    }
+
+    if (currentQuality > 0.52) {
+      currentQuality = Math.max(0.45, currentQuality - 0.08);
+      continue;
+    }
+
+    const nextWidth = Math.max(240, Math.round(width * 0.84));
+    const nextHeight = Math.max(240, Math.round(height * 0.84));
+
+    if (nextWidth === width && nextHeight === height) {
+      break;
+    }
+
+    const resizedCanvas = document.createElement("canvas");
+    const resizedContext = resizedCanvas.getContext("2d");
+
+    if (!resizedContext) {
+      throw new Error("Could not crop selected image.");
+    }
+
+    resizedCanvas.width = nextWidth;
+    resizedCanvas.height = nextHeight;
+    resizedContext.drawImage(workingCanvas, 0, 0, nextWidth, nextHeight);
+
+    workingCanvas = resizedCanvas;
+    width = nextWidth;
+    height = nextHeight;
+  }
+
+  if (lastBlob && lastBlob.size <= maxBytes) {
+    return lastBlob;
+  }
+
+  throw new Error("Could not compress selected image below 1 MB. Please choose a smaller image.");
 }
 
 async function compressImageFile(file, options = {}) {
   const {
     maxDimension = IMAGE_MAX_DIMENSION,
     quality = IMAGE_COMPRESSION_QUALITY,
+    maxBytes = 1024 * 1024,
   } = options;
+
+  if (file.size <= maxBytes && String(file.type || "").toLowerCase() === "image/jpeg") {
+    return file;
+  }
+
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const image = await loadImageElement(objectUrl);
-    const scale = Math.min(
-      1,
-      maxDimension / image.width,
-      maxDimension / image.height,
-    );
-    const targetWidth = Math.max(1, Math.round(image.width * scale));
-    const targetHeight = Math.max(1, Math.round(image.height * scale));
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
 
@@ -275,28 +325,65 @@ async function compressImageFile(file, options = {}) {
       throw new Error("Could not process selected image.");
     }
 
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+    const createBlob = (encoderQuality) =>
+      new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (result) => {
+            if (!result) {
+              reject(new Error("Could not compress selected image."));
+              return;
+            }
 
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (result) => {
-          if (!result) {
-            reject(new Error("Could not compress selected image."));
-            return;
-          }
+            resolve(result);
+          },
+          "image/jpeg",
+          encoderQuality,
+        );
+      });
 
-          resolve(result);
-        },
-        "image/jpeg",
-        quality,
+    let currentDimension = maxDimension;
+    let currentQuality = Math.min(0.92, Math.max(0.45, quality));
+    let lastBlob = null;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const scale = Math.min(
+        1,
+        currentDimension / image.width,
+        currentDimension / image.height,
       );
-    });
+      const targetWidth = Math.max(1, Math.round(image.width * scale));
+      const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      context.clearRect(0, 0, targetWidth, targetHeight);
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+      const blob = await createBlob(currentQuality);
+      lastBlob = blob;
+
+      if (blob.size <= maxBytes) {
+        const baseName =
+          String(file.name || "image").replace(/\.[^/.]+$/, "") || "image";
+        return new File([blob], `${baseName}-compressed.jpg`, {
+          type: "image/jpeg",
+        });
+      }
+
+      if (currentQuality > 0.52) {
+        currentQuality = Math.max(0.45, currentQuality - 0.08);
+      } else {
+        currentDimension = Math.max(240, Math.round(currentDimension * 0.84));
+      }
+    }
+
+    if (!lastBlob || lastBlob.size > maxBytes) {
+      throw new Error("Could not compress selected image below 1 MB. Please choose a smaller image.");
+    }
 
     const baseName =
       String(file.name || "image").replace(/\.[^/.]+$/, "") || "image";
-    return new File([blob], `${baseName}-compressed.jpg`, {
+    return new File([lastBlob], `${baseName}-compressed.jpg`, {
       type: "image/jpeg",
     });
   } finally {
@@ -1381,7 +1468,7 @@ const Admin = () => {
                     username: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#EF1C22] transition-all"
                 required
               />
             </div>
@@ -1398,7 +1485,7 @@ const Admin = () => {
                     password: event.target.value,
                   }))
                 }
-                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#C6A769] transition-all"
+                className="w-full rounded-xl bg-white border border-gray-200 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#EF1C22] transition-all"
                 required
               />
             </div>
@@ -1408,7 +1495,7 @@ const Admin = () => {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full bg-[#C6A769] text-white py-3 rounded-xl hover:bg-[#b5955a] transition-colors disabled:opacity-70 mt-2"
+              className="w-full bg-[#EF1C22] text-white py-3 rounded-xl hover:bg-[#b5955a] transition-colors disabled:opacity-70 mt-2"
             >
               {isLoggingIn ? "Signing in..." : "Login"}
             </button>
@@ -1420,7 +1507,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-bgLight pt-8 sm:pt-12 pb-12">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <section className="bg-[#C6A769] text-white rounded-3xl p-6 sm:p-8 lg:p-5 shadow-xl">
+        <section className="bg-[#EF1C22] text-white rounded-3xl p-6 sm:p-8 lg:p-5 shadow-xl">
           <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="shrink-0">
@@ -1483,6 +1570,17 @@ const Admin = () => {
                   }`}
                 >
                   Commercial Developments
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("heroSlides")}
+                  className={`whitespace-nowrap px-4 py-2 rounded-full text-sm ${
+                    activeTab === "heroSlides"
+                      ? "bg-bgLight text-primary"
+                      : "text-white"
+                  }`}
+                >
+                  Home Slider
                 </button>
                 <button
                   type="button"
@@ -1622,7 +1720,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenCommercialProjectForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Project
                   </button>
@@ -1750,7 +1848,7 @@ const Admin = () => {
                     <div className="flex flex-wrap items-center gap-3">
                       <label
                         htmlFor="commercial-project-image-upload"
-                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                       >
                         {commercialProjectForm.id
                           ? "Choose Replacement Cover Image"
@@ -1838,7 +1936,7 @@ const Admin = () => {
                   <button
                     type="submit"
                     disabled={isSavingCommercialProject}
-                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                    className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                   >
                     {isSavingCommercialProject
                       ? "Saving..."
@@ -1944,6 +2042,10 @@ const Admin = () => {
             </div>
           )}
 
+          {activeTab === "heroSlides" && !isLoadingData && (
+            <HeroSliderAdmin token={token} />
+          )}
+
           {activeTab === "villas" && !isLoadingData && (
             <VillaProjectsAdmin token={token} />
           )}
@@ -1962,7 +2064,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenGalleryForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Gallery
                   </button>
@@ -2047,7 +2149,7 @@ const Admin = () => {
                     <div className="flex flex-wrap items-center gap-3">
                       <label
                         htmlFor="gallery-image-upload"
-                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                        className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                       >
                         {galleryForm.id
                           ? "Choose Replacement Images"
@@ -2148,7 +2250,7 @@ const Admin = () => {
                   <button
                     type="submit"
                     disabled={isSavingGalleryEntry}
-                    className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                    className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                   >
                     {isSavingGalleryEntry
                       ? "Saving..."
@@ -2262,7 +2364,7 @@ const Admin = () => {
                   <button
                     type="button"
                     onClick={handleOpenBlogForm}
-                    className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     Add New Article
                   </button>
@@ -2359,7 +2461,7 @@ const Admin = () => {
                       <div className="flex flex-wrap items-center gap-3">
                         <label
                           htmlFor="blog-cover-image-upload"
-                          className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                          className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                         >
                           {blogForm.id
                             ? "Choose Replacement Cover Image"
@@ -2497,7 +2599,7 @@ const Admin = () => {
                     <button
                       type="submit"
                       disabled={isSavingBlog}
-                      className="bg-[#C6A769] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
+                      className="bg-[#EF1C22] text-white px-6 py-3 rounded-luxury hover:bg-opacity-90 transition-colors disabled:opacity-70"
                     >
                       {isSavingBlog
                         ? "Saving..."
@@ -2693,7 +2795,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyBlogImageCrop}
                   disabled={isApplyingBlogCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#EF1C22] text-white disabled:opacity-70"
                 >
                   {isApplyingBlogCrop ? "Applying..." : "Apply Crop"}
                 </button>
@@ -2760,7 +2862,7 @@ const Admin = () => {
                   type="button"
                   onClick={handleApplyCommercialImageCrop}
                   disabled={isApplyingCommercialCrop}
-                  className="px-5 py-2.5 rounded-luxury bg-[#C6A769] text-white disabled:opacity-70"
+                  className="px-5 py-2.5 rounded-luxury bg-[#EF1C22] text-white disabled:opacity-70"
                 >
                   {isApplyingCommercialCrop ? "Applying..." : "Apply Crop"}
                 </button>

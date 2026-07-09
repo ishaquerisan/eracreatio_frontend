@@ -7,7 +7,7 @@ const CounterSection = () => {
 
   const counters = [
     { label: 'Established', value: 2018, suffix: '' },
-    { label: 'Happy Families', value: 500, suffix: '+' },
+    { label: 'Happy Families', value: 300, suffix: '+' },
     { label: 'Completed Projects', value: 55, suffix: '+' },
     { label: 'Running Projects', value: 20, suffix: '+' }
   ];

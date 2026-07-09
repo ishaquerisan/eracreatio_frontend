@@ -20,7 +20,6 @@ import {
   FaLocationDot,
   FaMagnifyingGlass,
   FaMagnifyingGlassPlus,
-  FaMapLocationDot,
   FaPersonWalking,
   FaRoad,
   FaRulerCombined,
@@ -57,8 +56,11 @@ const emptyProject = {
   walkthroughVideoUrl: '',
   availabilityChartPdfUrl: '',
   mapLocationUrl: '',
+  locationScanImageUrl: '',
+  reraScanImageUrl: '',
   rera: '',
   otherCharges: '',
+  projectLogo: '',
   projectDetails: {},
   images: { exterior: [], interior: [] },
   highlights: [],
@@ -70,7 +72,7 @@ const emptyProject = {
 const SH = ({ label, title, light = false, left = false }) => (
   <div className={`mb-10 sm:mb-14 ${left ? '' : 'text-center'}`}>
     {label && <span className="text-accent text-xs font-semibold tracking-widest uppercase mb-3 block">{label}</span>}
-    <h2 className={`font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold ${light ? 'text-white' : 'text-primary'}`}>{title}</h2>
+    <h2 className={`max-w-full whitespace-normal [overflow-wrap:anywhere] font-serif text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight ${light ? 'text-white' : 'text-primary'}`}>{title}</h2>
     <div className={`w-14 h-0.5 bg-accent mt-4 ${left ? '' : 'mx-auto'}`} />
   </div>
 );
@@ -93,6 +95,9 @@ function mergeVillaProject(baseProject, nextProject) {
   mergedProject.price = nextProject?.price || nextProject?.startingPrice || baseProject.price || '';
   mergedProject.rera = nextProject?.rera || nextProject?.reraNumber || baseProject.rera || '';
   mergedProject.otherCharges = nextProject?.otherCharges || baseProject.otherCharges || '';
+  mergedProject.locationScanImageUrl = nextProject?.locationScanImageUrl || nextProject?.projectDetails?.locationScanImageUrl || baseProject.locationScanImageUrl || '';
+  mergedProject.reraScanImageUrl = nextProject?.reraScanImageUrl || nextProject?.projectDetails?.reraScanImageUrl || baseProject.reraScanImageUrl || '';
+  mergedProject.projectLogo = nextProject?.projectLogo || nextProject?.logo || baseProject.projectLogo || baseProject.logo || '';
 
   return mergedProject;
 }
@@ -101,8 +106,66 @@ function normalizeText(value) {
   return String(value || '').trim();
 }
 
+function extractIframeSrc(value) {
+  const rawValue = normalizeText(value);
+
+  if (!rawValue) {
+    return '';
+  }
+
+  const iframeSrcMatch = rawValue.match(/<iframe[^>]*\ssrc=["']([^"']+)["'][^>]*>/i);
+  return iframeSrcMatch?.[1] ? normalizeText(iframeSrcMatch[1]) : '';
+}
+
+function getGoogleMapEmbedUrl(mapUrl) {
+  const rawUrl = extractIframeSrc(mapUrl) || normalizeText(mapUrl);
+
+  if (!rawUrl) {
+    return '';
+  }
+
+  const buildEmbedUrl = (value) => `https://www.google.com/maps?q=${encodeURIComponent(value)}&output=embed`;
+
+  try {
+    const parsedUrl = new URL(rawUrl);
+    const host = parsedUrl.hostname.toLowerCase();
+
+    if (parsedUrl.pathname.includes('/maps/embed')) {
+      return parsedUrl.toString();
+    }
+
+    if (host.includes('google.') || host.includes('goo.gl')) {
+      const qParam = parsedUrl.searchParams.get('q') || parsedUrl.searchParams.get('query');
+
+      if (qParam) {
+        return buildEmbedUrl(qParam);
+      }
+
+      const placeMatch = parsedUrl.pathname.match(/\/maps\/place\/([^/]+)/i);
+      if (placeMatch?.[1]) {
+        return buildEmbedUrl(decodeURIComponent(placeMatch[1]).replace(/\+/g, ' '));
+      }
+
+      const coordsMatch = rawUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (coordsMatch) {
+        return buildEmbedUrl(`${coordsMatch[1]},${coordsMatch[2]}`);
+      }
+
+      return buildEmbedUrl(rawUrl);
+    }
+  } catch {
+    return buildEmbedUrl(rawUrl);
+  }
+
+  return buildEmbedUrl(rawUrl);
+}
+
 function getHeroImage(project) {
   return project?.bannerImage || project?.image || project?.images?.exterior?.[0] || '';
+}
+
+function getProjectLogo(project) {
+  return project?.projectLogo || project?.logo || '';
 }
 
 function getExteriorGalleryImages(project) {
@@ -114,6 +177,30 @@ function getExteriorGalleryImages(project) {
 
 function getInteriorGalleryImages(project) {
   return Array.isArray(project?.images?.interior) ? project.images.interior.filter(Boolean) : [];
+}
+
+function VillaNotFoundState() {
+  return (
+    <div className="min-h-screen bg-bgLight flex items-center justify-center px-4 py-24">
+      <div className="max-w-xl w-full rounded-[32px] bg-white border border-gray-200 shadow-[0_20px_60px_rgba(15,23,42,0.08)] p-8 sm:p-10 text-center">
+        <span className="inline-flex items-center rounded-full bg-accent/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+          Villa not found
+        </span>
+        <h1 className="mt-6 font-serif text-3xl sm:text-4xl font-bold text-primary">Villa not found</h1>
+        {/* <p className="mt-4 text-sm sm:text-base text-textGrey leading-relaxed">
+          The villa slug or id you opened does not exist anymore.
+        </p> */}
+        <div className="mt-8">
+          <Link
+            to="/villa-projects"
+            className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-opacity-90"
+          >
+            View Villa Projects
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ── Exterior Slider ── */
@@ -241,19 +328,14 @@ const amenityIconMap = {
 };
 
 const engineeringItems = [
-  { icon: FaTrowelBricks, title: 'RCC Frame Structure', desc: 'Reinforced concrete construction for maximum strength and durability.' },
+  { icon: FaTrowelBricks, title: 'Foundation System', desc: 'Designed as per soil conditions using rubble or RCC footing on suitable strata for stability.' },
   { icon: FaCube, title: 'Premium Materials', desc: 'Only certified, high-grade materials sourced from trusted suppliers.' },
   { icon: FaRulerCombined, title: 'Precision Engineering', desc: 'Every dimension planned and executed with engineering accuracy.' },
   { icon: FaMagnifyingGlass, title: 'Quality Inspections', desc: 'Multi-stage quality checks at every phase of construction.' },
   { icon: FaDroplet, title: 'Waterproofing', desc: 'Advanced waterproofing systems for roofs, bathrooms, and basements.' },
   { icon: FaBolt, title: 'Electrical Systems', desc: 'Concealed wiring with branded fittings and safety-compliant installations.' },
   { icon: FaTemperatureHalf, title: 'Thermal Comfort', desc: 'Designed for natural ventilation and optimal thermal performance.' },
-  { icon: FaShieldHalved, title: 'Seismic Compliance', desc: 'Structures designed to meet seismic zone safety requirements.' },
-];
-
-const qrItems = [
-  { label: 'Scan for Location', icon: FaLocationDot, sub: 'Google Maps' },
-  { label: 'Scan for RERA', icon: FaLandmark, sub: 'RERA Portal' },
+  { icon: FaShieldHalved, title: 'Branded Fixtures', desc: 'Sanitaryware and plumbing fittings from trusted brands for durability and performance.' },
 ];
 
 /* ── Main Page ── */
@@ -277,8 +359,14 @@ const EraEmerald = () => {
     normalizeText(project.mapLocationUrl)
     || normalizeText(project.rera)
     || normalizeText(project.otherCharges)
+    || normalizeText(project.locationScanImageUrl)
+    || normalizeText(project.reraScanImageUrl)
     || locationAdvantages.length > 0,
   );
+  const isVillaNotFound = /villa not found/i.test(loadError);
+  const mapInputUrl = extractIframeSrc(project.mapLocationUrl) || normalizeText(project.mapLocationUrl);
+  const mapEmbedUrl = getGoogleMapEmbedUrl(project.mapLocationUrl);
+  const mapPreviewUrl = mapEmbedUrl;
 
   const wa = `https://wa.me/${CONTACT_DETAILS.whatsappNumber}?text=${encodeURIComponent(`Hi! I am interested in ${project.name || ''}.`)}`;
 
@@ -286,7 +374,7 @@ const EraEmerald = () => {
     let isMounted = true;
 
     async function loadVilla() {
-      const identifier = villaSlug;
+      const identifier = String(villaSlug || '').trim();
 
       if (!identifier) {
         if (isMounted) {
@@ -327,6 +415,10 @@ const EraEmerald = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  if (isVillaNotFound) {
+    return <VillaNotFoundState />;
+  }
+
   return (
     <div className="overflow-x-hidden">
       {showPopup && <ContactPopup onClose={() => setShowPopup(false)} />}
@@ -341,6 +433,8 @@ const EraEmerald = () => {
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 pt-32">
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9 }} className="max-w-3xl">
+
+            <br />
             {project.status ? (
               <span className="inline-block bg-accent text-white text-xs font-semibold px-4 py-1.5 rounded-full mb-4 tracking-widest uppercase">
                 {project.status === 'completed' ? 'Completed Project' : project.status === 'draft' ? 'Draft Project' : 'Ongoing Project'}
@@ -349,7 +443,9 @@ const EraEmerald = () => {
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-3 leading-tight">{project.name}</h1>
             <p className="text-accent font-medium text-base sm:text-lg mb-3 flex items-center gap-2"><FaLocationDot /> {project.location}</p>
             {loadError ? <p className="mb-3 text-sm text-amber-300">{loadError}</p> : null}
-            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">{project.description}</p>
+            <p className="text-gray-200 text-base sm:text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">
+              {project.description}
+            </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Link to="/contact" className="inline-block bg-accent text-white px-7 py-3.5 rounded-luxury hover:bg-opacity-90 transition-all font-medium text-center text-sm sm:text-base">Book a Site Visit</Link>
               {normalizeText(project.brochurePdfUrl) ? (
@@ -372,15 +468,35 @@ const EraEmerald = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
             <motion.div initial={{ opacity: 0, x: -40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>
+              {getProjectLogo(project) ? (
+                <div className="mb-5 inline-flex">
+                  <img
+                    src={getProjectLogo(project)}
+                    alt={`${project.name || 'Project'} logo`}
+                    className="h-auto w-auto max-h-[14vh] max-w-[220px] object-contain"
+                  />
+                </div>
+              ) : null}
               <SH label={project.overviewTitle ? 'Project Overview' : ''} title={project.overviewTitle || ''} left />
               <div className="space-y-4 text-textGrey text-sm sm:text-base leading-relaxed">
-                <p>{project.overviewDescription || project.description || ''}</p>
-                <p>{project.description || ''}</p>
-                <p>{project.name ? `${project.name} is more than just a collection of homes — it is a refined living experience where comfort, privacy, and long-term value come together for modern families.` : ''}</p>
+                <p className="max-h-[25vh] overflow-y-auto pr-2">
+                  {project.overviewDescription || project.description || ''}
+                </p>
+
+
+                {/* <p>{project.description || ''}</p>
+                <p>{project.name }</p> */}
               </div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="grid grid-cols-2 gap-3 sm:gap-4">
-              {[[project.acres || project.overviewTotalLand || '', 'Total Land'], [project.totalVillas || project.overviewTotalUnits || '', 'Total Units'], [project.configuration || '', 'Configuration'], [project.price || '', 'Starting Price']].map(([v, l], i) => (
+              {[
+                [project.projectDetails?.totalLandArea || project.acres || project.overviewTotalLand || '', 'Total Land'],
+                [project.projectDetails?.totalUnits || project.totalVillas || project.overviewTotalUnits || '', 'Total Units'],
+                [project.projectDetails?.overviewEachPlot || project.overviewEachPlot || '', 'Each Plot (Cent)'],
+                [project.projectDetails?.overviewBuiltupAreaSqFt || project.overviewBuiltupAreaSqFt || '', 'Built-up Area Sq.Ft'],
+                [project.projectDetails?.configuration || project.configuration || '', 'Configuration'],
+                [project.projectDetails?.price || project.price || '', 'Starting Price'],
+              ].map(([v, l], i) => (
                 <div key={i} className="bg-bgLight rounded-xl sm:rounded-2xl p-5 sm:p-6 text-center border border-gray-100 hover:border-accent/30 transition-colors">
                   <div className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-accent mb-1">{v}</div>
                   <div className="text-textGrey text-xs sm:text-sm">{l}</div>
@@ -405,7 +521,7 @@ const EraEmerald = () => {
       {interiorImages.length > 0 ? (
         <section className="py-16 sm:py-20 bg-bgLight">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-            <SH label="Inside Your Home" title="Interior Spaces" />
+            <SH label="Inside Your Villa" title="Recreational Spaces" />
             <InteriorGallery project={{ ...project, images: { ...project.images, interior: interiorImages } }} />
           </div>
         </section>
@@ -461,16 +577,13 @@ const EraEmerald = () => {
               ['Total Land Area', project.projectDetails?.totalLandArea || project.acres || project.overviewTotalLand || ''], ['Total Units', project.projectDetails?.totalUnits || project.totalVillas || project.overviewTotalUnits || ''],
               ['Configuration', project.projectDetails?.configuration || project.configuration || ''], ['Price', project.projectDetails?.price || project.price || ''],
               ['Status', project.projectDetails?.status || project.status || ''], ['RERA Number', project.projectDetails?.reraNumber || project.rera || ''],
+              ['Other Charges', project.projectDetails?.otherCharges || project.otherCharges || ''],
             ].map(([k, v], i) => (
               <div key={i} className={`flex flex-col sm:flex-row sm:items-center px-5 sm:px-8 py-4 sm:py-5 ${i % 2 === 0 ? 'bg-white' : 'bg-bgLight'}`}>
                 <span className="text-textGrey text-xs font-medium w-full sm:w-52 mb-1 sm:mb-0 uppercase tracking-wide">{k}</span>
                 <span className="text-primary font-semibold text-sm sm:text-base">{v}</span>
               </div>
             ))}
-            <div className="px-5 sm:px-8 py-4 sm:py-5 bg-white border-t border-gray-100">
-              <span className="text-textGrey text-xs font-medium uppercase tracking-wide block mb-1">Other Charges</span>
-              <span className="text-textGrey text-xs sm:text-sm leading-relaxed">{project.otherCharges}</span>
-            </div>
           </div>
         </div>
       </section>
@@ -539,31 +652,65 @@ const EraEmerald = () => {
             <div className="grid lg:grid-cols-5 gap-8 lg:gap-10">
               <div className="lg:col-span-3">
                 <div className="rounded-2xl overflow-hidden shadow-xl bg-gray-100 h-64 sm:h-80 lg:h-full min-h-[300px] flex items-center justify-center border border-gray-200">
-                  <div className="text-center text-textGrey p-6">
-                    <FaMapLocationDot className="text-5xl mb-3 mx-auto text-accent" />
-                    <p className="font-semibold text-primary text-base mb-1">Google Map</p>
-                    <p className="text-sm text-textGrey">{project.location || ''}</p>
-                    {normalizeText(project.mapLocationUrl) ? (
-                      <a href={project.mapLocationUrl} target="_blank" rel="noopener noreferrer"
-                        className="inline-block mt-4 bg-accent text-white px-5 py-2 rounded-luxury text-sm hover:bg-opacity-90 transition-all">
-                        Open in Maps
-                      </a>
-                    ) : null}
+                  <div className="h-full w-full">
+                    {mapPreviewUrl ? (
+                      <iframe
+                        src={mapPreviewUrl}
+                        title={`${project.name || 'Project'} location map`}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        className="h-full w-full border-0"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-center text-textGrey p-6">
+                        <p className="font-semibold text-primary text-base">Map preview not available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
               </div>
               <div className="lg:col-span-2 space-y-5">
-                {qrItems.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    {qrItems.map((qr, i) => (
-                      <div key={i} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100"><qr.icon className="text-accent" /></div>
-                        <p className="text-xs font-semibold text-primary">{qr.label}</p>
-                        <p className="text-xs text-textGrey mt-0.5">{qr.sub}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    {
+                      label: 'Scan for Location',
+                      sub: 'Google Maps',
+                      icon: FaLocationDot,
+                      image: project.locationScanImageUrl,
+                      href: project.mapLocationUrl,
+                    },
+                    {
+                      label: 'Scan for RERA',
+                      sub: 'RERA Portal',
+                      icon: FaLandmark,
+                      image: project.reraScanImageUrl,
+                      href: '',
+                    },
+                  ].map((scan) => {
+                    const ScanIcon = scan.icon;
+
+                    return (
+                      <div key={scan.label} className="bg-bgLight rounded-xl p-4 text-center border border-gray-100 hover:border-accent/30 transition-colors">
+                        {scan.image ? (
+                          <img
+                            src={scan.image}
+                            alt={scan.label}
+                            className="w-full aspect-square object-cover rounded-xl mx-auto mb-3 border border-gray-100 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center text-3xl shadow-sm border border-gray-100">
+                            <ScanIcon className="text-accent" />
+                          </div>
+                        )}
+                        <p className="text-xs font-semibold text-primary">{scan.label}</p>
+                        <p className="text-xs text-textGrey mt-0.5">{scan.sub}</p>
+
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                    );
+                  })}
+                </div>
                 {normalizeText(project.rera) ? (
                   <div className="bg-bgLight rounded-xl p-4 sm:p-5 border border-gray-100">
                     <p className="text-xs text-textGrey uppercase tracking-wide mb-1">RERA Registration</p>
@@ -606,7 +753,7 @@ const EraEmerald = () => {
               <Link to="/contact" className="border-2 border-white text-white px-7 sm:px-8 py-3.5 sm:py-4 rounded-luxury hover:bg-white hover:text-primary transition-all font-medium text-sm sm:text-base">Get Full Details</Link>
               <a href={wa} target="_blank" rel="noopener noreferrer"
                 className="bg-green-500 text-white px-7 sm:px-8 py-3.5 sm:py-4 rounded-luxury hover:bg-green-600 transition-all font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" /></svg>
                 WhatsApp Now
               </a>
             </div>

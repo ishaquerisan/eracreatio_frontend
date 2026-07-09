@@ -1,14 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
 import { Link } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import {
   createAdminVilla,
   deleteAdminVilla,
   getAdminVillas,
   updateAdminVilla,
+  verifyAdminPassword,
 } from '../../services/api';
-import 'leaflet/dist/leaflet.css';
 import {
   FaBook,
   FaCar,
@@ -33,22 +31,15 @@ import {
   FaXmark,
 } from 'react-icons/fa6';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-});
-
 const WIZARD_STEPS = [
-  { id: 'basic', title: 'Basic Data', helper: 'Identity, location, and banner image' },
-  { id: 'detailed', title: 'Detailed Info', helper: 'Status, brochure, description, and video' },
+  { id: 'basic', title: 'Basic Data', helper: 'Identity, logo, location, and banner image' },
+  { id: 'detailed', title: 'Detailed Info', helper: 'Status, brochure, description, charges, and video' },
   { id: 'gallery', title: 'Gallery', helper: 'Exterior and interior images' },
   { id: 'highlights', title: 'Project Highlights', helper: 'Short selling points' },
   { id: 'details', title: 'Project Details', helper: 'Structured specs for the public page' },
   { id: 'amenities', title: 'Amenities & Features', helper: 'Custom amenity rows' },
   { id: 'availability', title: 'Availability Chart', helper: 'PDF upload' },
-  { id: 'location', title: 'Location & Legal', helper: 'Map link, advantages, and charges' },
+  { id: 'location', title: 'Location & Legal', helper: ' ' },
   { id: 'review', title: 'Review', helper: 'Check everything before saving' },
 ];
 
@@ -68,8 +59,6 @@ const EMPTY_AMENITY = {
   desc: '',
   icon: '',
 };
-
-const DEFAULT_MAP_CENTER = [11.8745, 75.3704];
 
 const AMENITY_ICON_OPTIONS = [
   { key: 'solar', label: 'Solar', Icon: FaSun },
@@ -108,144 +97,6 @@ function filterAmenityIconOptions(searchValue) {
       .toLowerCase()
       .includes(normalizedSearch);
   });
-}
-
-function buildMapUrl(latitude, longitude) {
-  return `https://www.google.com/maps?q=${latitude},${longitude}`;
-}
-
-function parseMapCoordinates(value) {
-  const rawValue = String(value || '').trim();
-
-  if (!rawValue) {
-    return null;
-  }
-
-  const googleQueryMatch = rawValue.match(/[?&]q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
-  if (googleQueryMatch) {
-    return [Number(googleQueryMatch[1]), Number(googleQueryMatch[2])];
-  }
-
-  const googleAtMatch = rawValue.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
-  if (googleAtMatch) {
-    return [Number(googleAtMatch[1]), Number(googleAtMatch[2])];
-  }
-
-  const plainMatch = rawValue.match(/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
-  if (plainMatch) {
-    return [Number(plainMatch[1]), Number(plainMatch[2])];
-  }
-
-  return null;
-}
-
-function MapViewport({ center }) {
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView(center, map.getZoom(), { animate: true });
-  }, [center, map]);
-
-  return null;
-}
-
-function MapEvents({ position, onChange }) {
-  useMapEvents({
-    click(event) {
-      onChange([event.latlng.lat, event.latlng.lng]);
-    },
-  });
-
-  return position ? (
-    <Marker
-      position={position}
-      draggable
-      eventHandlers={{
-        dragend(event) {
-          const marker = event.target.getLatLng();
-          onChange([marker.lat, marker.lng]);
-        },
-      }}
-    >
-      <Popup>Selected villa location</Popup>
-    </Marker>
-  ) : null;
-}
-
-function MapLocationPicker({ value, onChange, searchValue, onSearchValueChange, searchStatus, onSearch, isSearching }) {
-  const parsedCoordinates = parseMapCoordinates(value);
-  const [position, setPosition] = useState(parsedCoordinates || DEFAULT_MAP_CENTER);
-
-  useEffect(() => {
-    const nextCoordinates = parseMapCoordinates(value);
-
-    if (nextCoordinates) {
-      setPosition(nextCoordinates);
-    }
-  }, [value]);
-
-  const handleSelectPosition = (nextPosition) => {
-    setPosition(nextPosition);
-    onChange(buildMapUrl(nextPosition[0], nextPosition[1]));
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm text-primary">
-        <FaMapLocationDot className="text-accent" />
-        Pin the exact villa location
-      </div>
-      <div className="grid sm:grid-cols-[1fr_auto] gap-3">
-        <input
-          type="text"
-          value={searchValue}
-          onChange={(event) => onSearchValueChange(event.target.value)}
-          placeholder="Search a place and pin it on the map"
-          className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-        />
-        <button
-          type="button"
-          onClick={onSearch}
-          disabled={isSearching}
-          className="px-5 py-3 rounded-xl bg-primary text-white disabled:opacity-60"
-        >
-          <span className="inline-flex items-center gap-2">
-            <FaMagnifyingGlass />
-            {isSearching ? 'Searching...' : 'Search & Pin'}
-          </span>
-        </button>
-      </div>
-
-      <div className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
-        <MapContainer center={position} zoom={15} scrollWheelZoom className="h-[360px] w-full">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <MapViewport center={position} />
-          <MapEvents position={position} onChange={handleSelectPosition} />
-        </MapContainer>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-textGrey">
-        <span>
-          Selected pin: <span className="text-primary">{position[0].toFixed(6)}, {position[1].toFixed(6)}</span>
-        </span>
-        <span>{searchStatus || 'Click the map or drag the pin to update the project location.'}</span>
-      </div>
-
-      {value ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 text-accent text-sm"
-        >
-          <FaLocationDot /> Open selected pin in Maps
-        </a>
-      ) : null}
-    </div>
-  );
 }
 
 function formatDateTime(value) {
@@ -287,14 +138,21 @@ function loadImageElement(imageSrc) {
 }
 
 async function compressImageFile(file, options = {}) {
-  const { maxDimension = 1920, quality = 0.82 } = options;
+  const {
+    maxDimension = 1920,
+    quality = 0.82,
+    outputType = 'image/jpeg',
+    maxBytes = 1024 * 1024,
+  } = options;
+
+  if (file.size <= maxBytes && String(file.type || '').toLowerCase() === String(outputType || '').toLowerCase()) {
+    return file;
+  }
+
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const image = await loadImageElement(objectUrl);
-    const scale = Math.min(1, maxDimension / image.width, maxDimension / image.height);
-    const targetWidth = Math.max(1, Math.round(image.width * scale));
-    const targetHeight = Math.max(1, Math.round(image.height * scale));
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
@@ -302,11 +160,7 @@ async function compressImageFile(file, options = {}) {
       throw new Error('Could not process selected image.');
     }
 
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    context.drawImage(image, 0, 0, targetWidth, targetHeight);
-
-    const blob = await new Promise((resolve, reject) => {
+    const createBlob = (mimeType, encoderQuality) => new Promise((resolve, reject) => {
       canvas.toBlob((result) => {
         if (!result) {
           reject(new Error('Could not compress selected image.'));
@@ -314,11 +168,46 @@ async function compressImageFile(file, options = {}) {
         }
 
         resolve(result);
-      }, 'image/jpeg', quality);
+      }, mimeType, encoderQuality);
     });
 
-    const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
-    return new File([blob], `${baseName}-compressed.jpg`, { type: 'image/jpeg' });
+    let currentDimension = maxDimension;
+    let currentQuality = Math.min(0.92, Math.max(0.45, quality));
+    let lastBlob = null;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const scale = Math.min(1, currentDimension / image.width, currentDimension / image.height);
+      const targetWidth = Math.max(1, Math.round(image.width * scale));
+      const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      context.clearRect(0, 0, targetWidth, targetHeight);
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+      const blob = await createBlob(outputType, outputType === 'image/png' ? undefined : currentQuality);
+      lastBlob = blob;
+
+      if (blob.size <= maxBytes) {
+        const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
+        const extension = outputType === 'image/png' ? 'png' : 'jpg';
+        return new File([blob], `${baseName}-compressed.${extension}`, { type: outputType });
+      }
+
+      if (outputType !== 'image/png' && currentQuality > 0.52) {
+        currentQuality = Math.max(0.45, currentQuality - 0.08);
+      } else {
+        currentDimension = Math.max(240, Math.round(currentDimension * 0.84));
+      }
+    }
+
+    if (lastBlob && lastBlob.size <= maxBytes) {
+      const baseName = String(file.name || 'image').replace(/\.[^/.]+$/, '') || 'image';
+      const extension = outputType === 'image/png' ? 'png' : 'jpg';
+      return new File([lastBlob], `${baseName}-compressed.${extension}`, { type: outputType });
+    }
+
+    throw new Error('Could not compress selected image below 1 MB. Please choose a smaller image.');
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -356,6 +245,58 @@ function normalizeArrayValue(value) {
   return [];
 }
 
+function countWords(value) {
+  return String(value || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+function normalizeSlugValue(value) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function extractIframeSrc(value) {
+  const rawValue = String(value || '').trim();
+
+  if (!rawValue) {
+    return '';
+  }
+
+  const iframeSrcMatch = rawValue.match(/<iframe[^>]*\ssrc=["']([^"']+)["'][^>]*>/i);
+  return iframeSrcMatch?.[1] ? String(iframeSrcMatch[1]).trim() : '';
+}
+
+function createSafeVillaSlug(slugValue, fallbackValue) {
+  const normalizedSlug = normalizeSlugValue(slugValue);
+  const normalizedFallback = normalizeSlugValue(fallbackValue);
+  const baseSlug = normalizedSlug || normalizedFallback || `villa-${Date.now()}`;
+
+  return /^\d+$/.test(baseSlug) ? `villa-${baseSlug}` : baseSlug;
+}
+
+function isVillaSlugTaken(slugValue, villas, currentVillaId = null) {
+  const normalizedSlug = normalizeSlugValue(slugValue);
+
+  if (!normalizedSlug) {
+    return false;
+  }
+
+  return (villas || []).some((villa) => {
+    if (currentVillaId !== null && String(villa.id) === String(currentVillaId)) {
+      return false;
+    }
+
+    return normalizeSlugValue(villa.slug) === normalizedSlug;
+  });
+}
+
 function createEmptyVillaForm() {
   return {
     id: null,
@@ -370,11 +311,17 @@ function createEmptyVillaForm() {
     overviewDescription: '',
     overviewTotalLand: '',
     overviewTotalUnits: '',
+    overviewEachPlot: '',
+    overviewBuiltupAreaSqFt: '',
     configuration: '',
     startingPrice: '',
     reraNumber: '',
     mapLocationUrl: '',
     otherCharges: '',
+    locationScanImageFile: null,
+    locationScanImageName: '',
+    reraScanImageFile: null,
+    reraScanImageName: '',
     projectDetails: { ...EMPTY_PROJECT_DETAIL },
     projectHighlights: [''],
     locationAdvantages: [''],
@@ -382,6 +329,10 @@ function createEmptyVillaForm() {
     bannerImageFile: null,
     bannerImagePreviewUrl: '',
     existingBannerImageUrl: '',
+    projectLogoFile: null,
+    projectLogoPreviewUrl: '',
+    existingProjectLogoUrl: '',
+    projectLogoName: '',
     brochurePdfFile: null,
     brochurePdfName: '',
     existingBrochurePdfUrl: '',
@@ -403,13 +354,17 @@ function mapVillaToForm(villa) {
     ? villa.projectDetails
     : {};
 
-  const exteriorImages = Array.isArray(villa.images?.exterior) ? villa.images.exterior : [];
+  const bannerImageUrl = villa.bannerImage || villa.image || '';
+  const projectLogoUrl = villa.projectLogo || villa.logo || '';
+  const exteriorImages = Array.isArray(villa.images?.exterior)
+    ? villa.images.exterior.filter((value) => value && value !== bannerImageUrl)
+    : [];
   const interiorImages = Array.isArray(villa.images?.interior) ? villa.images.interior : [];
 
   return {
     ...createEmptyVillaForm(),
     id: villa.id,
-    slug: villa.slug || '',
+    slug: normalizeSlugValue(villa.slug),
     name: villa.name || '',
     location: villa.location || '',
     acres: villa.acres || '',
@@ -420,6 +375,8 @@ function mapVillaToForm(villa) {
     overviewDescription: villa.overviewDescription || '',
     overviewTotalLand: villa.overviewTotalLand || '',
     overviewTotalUnits: villa.overviewTotalUnits || '',
+    overviewEachPlot: villa.overviewEachPlot || projectDetails.overviewEachPlot || '',
+    overviewBuiltupAreaSqFt: villa.overviewBuiltupAreaSqFt || projectDetails.overviewBuiltupAreaSqFt || '',
     configuration: villa.configuration || '',
     startingPrice: villa.startingPrice || villa.price || '',
     reraNumber: villa.reraNumber || projectDetails.reraNumber || '',
@@ -430,10 +387,14 @@ function mapVillaToForm(villa) {
       location: projectDetails.location || villa.location || '',
       totalLandArea: projectDetails.totalLandArea || villa.acres || '',
       totalUnits: projectDetails.totalUnits || villa.totalVillas || '',
+      overviewEachPlot: projectDetails.overviewEachPlot || villa.overviewEachPlot || '',
+      overviewBuiltupAreaSqFt: projectDetails.overviewBuiltupAreaSqFt || villa.overviewBuiltupAreaSqFt || '',
       configuration: projectDetails.configuration || villa.configuration || '',
       price: projectDetails.price || villa.startingPrice || villa.price || '',
       status: projectDetails.status || villa.status || 'draft',
       reraNumber: projectDetails.reraNumber || villa.reraNumber || '',
+      locationScanImageUrl: projectDetails.locationScanImageUrl || '',
+      reraScanImageUrl: projectDetails.reraScanImageUrl || '',
     },
     projectHighlights: normalizeArrayValue(villa.highlights).concat(['']).slice(0, Math.max(1, normalizeArrayValue(villa.highlights).length + 1)),
     locationAdvantages: normalizeArrayValue(villa.locationAdvantages).concat(['']).slice(0, Math.max(1, normalizeArrayValue(villa.locationAdvantages).length + 1)),
@@ -444,12 +405,13 @@ function mapVillaToForm(villa) {
         icon: String(item.icon || '').trim(),
       }))
       : [{ ...EMPTY_AMENITY }],
-    existingBannerImageUrl: villa.bannerImage || villa.image || '',
+    existingBannerImageUrl: bannerImageUrl,
     existingBrochurePdfUrl: villa.brochurePdfUrl || '',
     existingWalkthroughVideoUrl: villa.walkthroughVideoUrl || '',
     existingAvailabilityChartPdfUrl: villa.availabilityChartPdfUrl || '',
     existingExteriorImages: exteriorImages,
     existingInteriorImages: interiorImages,
+    existingProjectLogoUrl: projectLogoUrl,
   };
 }
 
@@ -510,16 +472,23 @@ function VillaProjectsAdmin({ token }) {
   const [deletingVillaId, setDeletingVillaId] = useState(null);
   const [form, setForm] = useState(createEmptyVillaForm());
   const [amenityIconSearches, setAmenityIconSearches] = useState({});
-  const [mapSearchValue, setMapSearchValue] = useState('');
-  const [mapSearchStatus, setMapSearchStatus] = useState('');
-  const [isMapSearching, setIsMapSearching] = useState(false);
+  const [editingAmenityIndex, setEditingAmenityIndex] = useState(null);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [passwordConfirmInput, setPasswordConfirmInput] = useState('');
+  const [passwordConfirmError, setPasswordConfirmError] = useState('');
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [pendingDeleteVillaId, setPendingDeleteVillaId] = useState(null);
   const bannerInputRef = useRef(null);
+  const projectLogoInputRef = useRef(null);
   const brochureInputRef = useRef(null);
   const walkthroughVideoInputRef = useRef(null);
   const availabilityInputRef = useRef(null);
+  const locationScanInputRef = useRef(null);
+  const reraScanInputRef = useRef(null);
   const exteriorInputRef = useRef(null);
   const interiorInputRef = useRef(null);
   const bannerPreviewRef = useRef('');
+  const projectLogoPreviewRef = useRef('');
   const exteriorPreviewRef = useRef([]);
   const interiorPreviewRef = useRef([]);
 
@@ -570,6 +539,14 @@ function VillaProjectsAdmin({ token }) {
   }, []);
 
   useEffect(() => {
+    projectLogoPreviewRef.current = form.projectLogoPreviewUrl;
+  }, [form.projectLogoPreviewUrl]);
+
+  useEffect(() => () => {
+    revokePreviewEntry({ previewUrl: projectLogoPreviewRef.current });
+  }, []);
+
+  useEffect(() => {
     exteriorPreviewRef.current = form.exteriorImages;
   }, [form.exteriorImages]);
 
@@ -590,6 +567,10 @@ function VillaProjectsAdmin({ token }) {
       bannerInputRef.current.value = '';
     }
 
+    if (projectLogoInputRef.current) {
+      projectLogoInputRef.current.value = '';
+    }
+
     if (brochureInputRef.current) {
       brochureInputRef.current.value = '';
     }
@@ -600,6 +581,14 @@ function VillaProjectsAdmin({ token }) {
 
     if (availabilityInputRef.current) {
       availabilityInputRef.current.value = '';
+    }
+
+    if (locationScanInputRef.current) {
+      locationScanInputRef.current.value = '';
+    }
+
+    if (reraScanInputRef.current) {
+      reraScanInputRef.current.value = '';
     }
 
     if (exteriorInputRef.current) {
@@ -614,13 +603,12 @@ function VillaProjectsAdmin({ token }) {
   const resetForm = () => {
     setForm((previous) => {
       revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+      revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
       revokePreviewEntryList(previous.exteriorImages);
       revokePreviewEntryList(previous.interiorImages);
       return createEmptyVillaForm();
     });
     setAmenityIconSearches({});
-    setMapSearchValue('');
-    setMapSearchStatus('');
     resetUploadInputs();
     setActiveStep(0);
   };
@@ -628,6 +616,7 @@ function VillaProjectsAdmin({ token }) {
   const openNewForm = () => {
     resetForm();
     setMessage({ type: '', text: '' });
+    setEditingAmenityIndex(0);
     setShowForm(true);
   };
 
@@ -640,13 +629,13 @@ function VillaProjectsAdmin({ token }) {
   const editVilla = (villa) => {
     setForm((previous) => {
       revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+      revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
       revokePreviewEntryList(previous.exteriorImages);
       revokePreviewEntryList(previous.interiorImages);
       return mapVillaToForm(villa);
     });
     setAmenityIconSearches({});
-    setMapSearchValue('');
-    setMapSearchStatus('');
+    setEditingAmenityIndex(null);
     resetUploadInputs();
     setMessage({ type: '', text: '' });
     setActiveStep(0);
@@ -668,6 +657,66 @@ function VillaProjectsAdmin({ token }) {
     }));
   };
 
+  const addAmenityRow = () => {
+    setForm((previous) => ({
+      ...previous,
+      amenities: [...previous.amenities, { ...EMPTY_AMENITY }],
+    }));
+    setAmenityIconSearches({});
+    setEditingAmenityIndex(form.amenities.length);
+  };
+
+  const updateAmenityField = (index, field, value) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities[index] = { ...nextAmenities[index], [field]: value };
+      return { ...previous, amenities: nextAmenities };
+    });
+  };
+
+  const updateAmenityIcon = (index, iconKey) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities[index] = { ...nextAmenities[index], icon: iconKey };
+      return { ...previous, amenities: nextAmenities };
+    });
+  };
+
+  const openAmenityEditor = (index) => {
+    setEditingAmenityIndex(index);
+    setAmenityIconSearches((previous) => ({
+      ...previous,
+      [index]: previous[index] || '',
+    }));
+  };
+
+  const closeAmenityEditor = () => {
+    setEditingAmenityIndex(null);
+  };
+
+  const removeAmenityRow = (index) => {
+    setForm((previous) => {
+      const nextAmenities = [...previous.amenities];
+      nextAmenities.splice(index, 1);
+      return {
+        ...previous,
+        amenities: nextAmenities.length > 0 ? nextAmenities : [{ ...EMPTY_AMENITY }],
+      };
+    });
+    setAmenityIconSearches({});
+    setEditingAmenityIndex((previous) => {
+      if (previous === index) {
+        return null;
+      }
+
+      if (previous !== null && previous > index) {
+        return previous - 1;
+      }
+
+      return previous;
+    });
+  };
+
   const removeArrayRow = (field, index) => {
     setForm((previous) => {
       const nextValues = [...previous[field]];
@@ -678,6 +727,59 @@ function VillaProjectsAdmin({ token }) {
         [field]: nextValues.length > 0 ? nextValues : [field === 'amenities' ? { ...EMPTY_AMENITY } : ''],
       };
     });
+  };
+
+  const removeGalleryImage = (field, index) => {
+    setForm((previous) => {
+      const nextValues = [...previous[field]];
+      const removed = nextValues.splice(index, 1)[0];
+      revokePreviewEntry(removed);
+
+      return {
+        ...previous,
+        [field]: nextValues,
+      };
+    });
+  };
+
+  const renderGalleryImageGrid = (title, items, field, emptyLabel) => {
+    if (!items.length) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-primary">{title}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {items.map((item, index) => {
+            const isExistingImage = typeof item === 'string';
+            const imageSrc = isExistingImage ? item : item.previewUrl;
+            const imageName = isExistingImage ? emptyLabel || `Image ${index + 1}` : item.name;
+            const imageSize = isExistingImage ? '' : formatFileSize(item.size);
+
+            return (
+              <div key={`${field}-${imageName}-${index}`} className="relative overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <img src={imageSrc} alt={imageName} className="h-28 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeGalleryImage(field, index)}
+                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                  aria-label={`Remove ${imageName}`}
+                >
+                  <FaXmark className="text-sm" />
+                </button>
+                {!isExistingImage ? (
+                  <div className="p-2">
+                    <p className="text-[11px] text-primary truncate">{imageName}</p>
+                    <p className="text-[10px] text-textGrey">{imageSize}</p>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   const handleBannerSelection = async (event) => {
@@ -717,18 +819,86 @@ function VillaProjectsAdmin({ token }) {
     }
   };
 
-  const handleSingleFileSelection = (field, nameField, event) => {
+  const handleProjectLogoSelection = async (event) => {
     const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
 
     if (!selectedFile) {
       return;
     }
 
-    setForm((previous) => ({
-      ...previous,
-      [field]: selectedFile,
-      [nameField]: selectedFile.name || 'selected file',
-    }));
+    const normalizedType = String(selectedFile.type || '').toLowerCase();
+    const isPngType = normalizedType === 'image/png' || normalizedType === 'image/x-png';
+    const hasPngExtension = /\.png$/i.test(String(selectedFile.name || '').trim());
+
+    if (!isPngType && !hasPngExtension) {
+      setMessage({ type: 'error', text: 'Logo must be a PNG image.' });
+      if (projectLogoInputRef.current) {
+        projectLogoInputRef.current.value = '';
+      }
+      return;
+    }
+
+    try {
+      const compressedFile = await compressImageFile(selectedFile, { outputType: 'image/png' });
+      const nextPreviewUrl = URL.createObjectURL(compressedFile);
+
+      setForm((previous) => {
+        revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
+        return {
+          ...previous,
+          projectLogoFile: compressedFile,
+          projectLogoPreviewUrl: nextPreviewUrl,
+          projectLogoName: compressedFile.name || selectedFile.name || 'selected file',
+        };
+      });
+
+      setMessage({ type: '', text: '' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Could not compress selected image.' });
+      if (projectLogoInputRef.current) {
+        projectLogoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleSingleFileSelection = async (field, nameField, event) => {
+    const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if ((field === 'locationScanImageFile' || field === 'reraScanImageFile') && !String(selectedFile.type || '').startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Only image files are allowed.' });
+      event.target.value = '';
+      return;
+    }
+
+    const shouldCompressImage = field === 'locationScanImageFile' || field === 'reraScanImageFile';
+
+    if (!shouldCompressImage) {
+      setForm((previous) => ({
+        ...previous,
+        [field]: selectedFile,
+        [nameField]: selectedFile.name || 'selected file',
+      }));
+      return;
+    }
+
+    try {
+      const compressedFile = await compressImageFile(selectedFile);
+
+      setForm((previous) => ({
+        ...previous,
+        [field]: compressedFile,
+        [nameField]: compressedFile.name || selectedFile.name || 'selected file',
+      }));
+
+      setMessage({ type: '', text: '' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Could not compress selected image.' });
+      event.target.value = '';
+    }
   };
 
   const handleMultiImageSelection = async (field, event) => {
@@ -814,9 +984,11 @@ function VillaProjectsAdmin({ token }) {
     setIsSaving(true);
 
     try {
+      const isFinalReviewStep = !isBasicOnly && activeStep === visibleSteps.length - 1;
       const nextStepIndex = getNextStepIndex(activeStep);
+      const safeSlug = createSafeVillaSlug(form.slug, form.name);
       const payload = new FormData();
-      payload.append('slug', form.slug.trim());
+      payload.append('slug', safeSlug);
       payload.append('name', form.name.trim());
       payload.append('location', form.location.trim());
       payload.append('acres', form.acres.trim());
@@ -830,13 +1002,16 @@ function VillaProjectsAdmin({ token }) {
       payload.append('configuration', form.configuration.trim());
       payload.append('startingPrice', form.startingPrice.trim());
       payload.append('reraNumber', form.reraNumber.trim());
-      payload.append('mapLocationUrl', form.mapLocationUrl.trim());
+      const mapEmbedSrc = extractIframeSrc(form.mapLocationUrl);
+      payload.append('mapLocationUrl', mapEmbedSrc);
       payload.append('otherCharges', form.otherCharges.trim());
       payload.append('projectDetails', JSON.stringify({
         projectName: form.name.trim(),
         location: form.location.trim(),
         totalLandArea: form.acres.trim(),
         totalUnits: form.totalVillas.trim(),
+        overviewEachPlot: form.overviewEachPlot.trim(),
+        overviewBuiltupAreaSqFt: form.overviewBuiltupAreaSqFt.trim(),
         configuration: form.configuration.trim(),
         price: form.startingPrice.trim(),
         status: form.status,
@@ -845,9 +1020,15 @@ function VillaProjectsAdmin({ token }) {
       payload.append('projectHighlights', JSON.stringify(cleanArray(form.projectHighlights)));
       payload.append('locationAdvantages', JSON.stringify(cleanArray(form.locationAdvantages)));
       payload.append('amenities', JSON.stringify(cleanAmenities(form.amenities)));
+      payload.append('existingExteriorImages', JSON.stringify(form.existingExteriorImages));
+      payload.append('existingInteriorImages', JSON.stringify(form.existingInteriorImages));
 
       if (form.bannerImageFile) {
         payload.append('bannerImage', form.bannerImageFile);
+      }
+
+      if (form.projectLogoFile) {
+        payload.append('projectLogo', form.projectLogoFile);
       }
 
       if (form.brochurePdfFile) {
@@ -860,6 +1041,14 @@ function VillaProjectsAdmin({ token }) {
 
       if (form.availabilityChartPdfFile) {
         payload.append('availabilityChartPdf', form.availabilityChartPdfFile);
+      }
+
+      if (form.locationScanImageFile) {
+        payload.append('locationScanImage', form.locationScanImageFile);
+      }
+
+      if (form.reraScanImageFile) {
+        payload.append('reraScanImage', form.reraScanImageFile);
       }
 
       form.exteriorImages.forEach((item) => {
@@ -883,6 +1072,7 @@ function VillaProjectsAdmin({ token }) {
       if (savedVilla) {
         setForm((previous) => {
           revokePreviewEntry({ previewUrl: previous.bannerImagePreviewUrl });
+          revokePreviewEntry({ previewUrl: previous.projectLogoPreviewUrl });
           revokePreviewEntryList(previous.exteriorImages);
           revokePreviewEntryList(previous.interiorImages);
           return mapVillaToForm(savedVilla);
@@ -894,12 +1084,24 @@ function VillaProjectsAdmin({ token }) {
         text: form.id ? 'Villa updated successfully.' : 'Villa created successfully.',
       });
 
-      if (!isBasicOnly && nextStepIndex > activeStep) {
+      if (isFinalReviewStep) {
+        window.alert(form.id ? 'Villa updated successfully.' : 'Villa created successfully.');
+        closeForm();
+      } else if (!isBasicOnly && nextStepIndex > activeStep) {
         setActiveStep(nextStepIndex);
       }
 
-      const data = await getAdminVillas(token);
-      setVillas(data.villas || []);
+      // Clear the save state as soon as persistence succeeds.
+      setIsSaving(false);
+
+      // Refresh list in the background so a slow fetch does not keep the form stuck in "Saving...".
+      getAdminVillas(token)
+        .then((data) => {
+          setVillas(data.villas || []);
+        })
+        .catch(() => {
+          // Keep success state because the save already completed.
+        });
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Could not save villa.' });
     } finally {
@@ -907,30 +1109,61 @@ function VillaProjectsAdmin({ token }) {
     }
   };
 
-  const deleteVilla = async (villaId) => {
-    const confirmed = window.confirm('Delete this villa and all uploaded assets?');
+  const deleteVilla = (villaId) => {
+    setPendingDeleteVillaId(villaId);
+    setPasswordConfirmInput('');
+    setPasswordConfirmError('');
+    setShowPasswordConfirm(true);
+  };
 
-    if (!confirmed) {
+  const cancelPasswordConfirm = () => {
+    setShowPasswordConfirm(false);
+    setPasswordConfirmInput('');
+    setPasswordConfirmError('');
+    setPendingDeleteVillaId(null);
+  };
+
+  const confirmDeleteWithPassword = async (event) => {
+    event.preventDefault();
+    setPasswordConfirmError('');
+
+    if (!passwordConfirmInput.trim()) {
+      setPasswordConfirmError('Password is required.');
       return;
     }
 
-    setDeletingVillaId(villaId);
-    setMessage({ type: '', text: '' });
+    setIsVerifyingPassword(true);
 
     try {
-      await deleteAdminVilla(token, villaId);
+      await verifyAdminPassword(token, passwordConfirmInput);
+      
+      // Password verified, now delete the villa
+      setShowPasswordConfirm(false);
+      setPasswordConfirmInput('');
+      setIsVerifyingPassword(false);
+      
+      setDeletingVillaId(pendingDeleteVillaId);
+      setMessage({ type: '', text: '' });
 
-      if (form.id === villaId) {
-        closeForm();
+      try {
+        await deleteAdminVilla(token, pendingDeleteVillaId);
+
+        if (form.id === pendingDeleteVillaId) {
+          closeForm();
+        }
+
+        const data = await getAdminVillas(token);
+        setVillas(data.villas || []);
+        setMessage({ type: 'success', text: 'Villa deleted successfully.' });
+      } catch (error) {
+        setMessage({ type: 'error', text: error.message || 'Could not delete villa.' });
+      } finally {
+        setDeletingVillaId(null);
+        setPendingDeleteVillaId(null);
       }
-
-      const data = await getAdminVillas(token);
-      setVillas(data.villas || []);
-      setMessage({ type: 'success', text: 'Villa deleted successfully.' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.message || 'Could not delete villa.' });
-    } finally {
-      setDeletingVillaId(null);
+      setPasswordConfirmError(error.message || 'Password verification failed.');
+      setIsVerifyingPassword(false);
     }
   };
 
@@ -940,6 +1173,9 @@ function VillaProjectsAdmin({ token }) {
   const isBasicOnly = isBasicOnlyVilla(form);
   const visibleSteps = isBasicOnly ? WIZARD_STEPS.slice(0, 1) : WIZARD_STEPS;
   const saveButtonLabel = isBasicOnly || activeStep === visibleSteps.length - 1 ? 'Save' : 'Save and Next';
+  const effectiveSlug = createSafeVillaSlug(form.slug, form.name);
+  const isSlugDuplicate = isVillaSlugTaken(effectiveSlug, villas, form.id);
+  const descriptionWordCount = countWords(form.description);
 
   useEffect(() => {
     if (isBasicOnly && activeStep !== 0) {
@@ -967,11 +1203,19 @@ function VillaProjectsAdmin({ token }) {
               />
               <input
                 type="text"
-                placeholder="Slug (optional)"
+                placeholder="Project ID"
                 value={form.slug}
-                onChange={(event) => setForm((previous) => ({ ...previous, slug: event.target.value }))}
+                onChange={(event) => setForm((previous) => ({
+                  ...previous,
+                  slug: normalizeSlugValue(event.target.value),
+                }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
+              {isSlugDuplicate ? (
+                <p className="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  This project ID is already in use. A unique version will be saved.
+                </p>
+              ) : null}
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
@@ -1013,6 +1257,40 @@ function VillaProjectsAdmin({ token }) {
               </div>
               <div className="rounded-2xl border border-primary/15 bg-white p-4">
                 <input
+                  ref={projectLogoInputRef}
+                  id="villa-logo-upload"
+                  type="file"
+                  accept="image/png,.png"
+                  onChange={handleProjectLogoSelection}
+                  className="hidden"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label
+                    htmlFor="villa-logo-upload"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                  >
+                    {form.id ? 'Replace Project Logo' : 'Choose Project Logo'}
+                  </label>
+                  {form.projectLogoFile ? (
+                    <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">{form.projectLogoName || form.projectLogoFile.name}</span>
+                  ) : form.existingProjectLogoUrl ? (
+                    <span className="text-xs sm:text-sm text-textGrey truncate max-w-[280px]">Current project logo is set</span>
+                  ) : (
+                    <span className="text-xs sm:text-sm text-textGrey">No logo selected</span>
+                  )}
+                </div>
+              </div>
+              {form.projectLogoPreviewUrl ? (
+                <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                  <img src={form.projectLogoPreviewUrl} alt="Project logo preview" className="h-24 w-full rounded-xl border border-gray-200 bg-white object-contain p-3" />
+                </div>
+              ) : form.existingProjectLogoUrl ? (
+                <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                  <img src={form.existingProjectLogoUrl} alt="Current project logo" className="h-24 w-full rounded-xl border border-gray-200 bg-white object-contain p-3" />
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-primary/15 bg-white p-4 sm:col-span-2">
+                <input
                   ref={bannerInputRef}
                   id="villa-banner-upload"
                   type="file"
@@ -1023,7 +1301,7 @@ function VillaProjectsAdmin({ token }) {
                 <div className="flex flex-wrap items-center gap-3">
                   <label
                     htmlFor="villa-banner-upload"
-                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+                    className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
                   >
                     {form.id ? 'Replace Banner Image' : 'Choose Banner Image'}
                   </label>
@@ -1082,10 +1360,25 @@ function VillaProjectsAdmin({ token }) {
             <textarea
               placeholder="Description"
               value={form.description}
-              onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+
+                setForm((previous) => ({
+                  ...previous,
+                  description: countWords(nextValue) > 50 ? previous.description : nextValue,
+                }));
+              }}
               rows={4}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
             />
+            <div className="flex flex-col items-end gap-1 text-xs">
+              {descriptionWordCount >= 45 ? (
+                <p className={`font-medium ${descriptionWordCount >= 50 ? 'text-red-600' : 'text-amber-600'}`}>
+                  {descriptionWordCount >= 50 ? 'Word limit reached.' : 'You are close to the 50-word limit.'}
+                </p>
+              ) : null}
+              <p className="text-textGrey">{descriptionWordCount} / 50 words</p>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
                 type="text"
@@ -1124,6 +1417,20 @@ function VillaProjectsAdmin({ token }) {
                 onChange={(event) => setForm((previous) => ({ ...previous, overviewTotalUnits: event.target.value }))}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
+              <input
+                type="text"
+                placeholder="Each plot (Cent)"
+                value={form.overviewEachPlot}
+                onChange={(event) => setForm((previous) => ({ ...previous, overviewEachPlot: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <input
+                type="text"
+                placeholder="Built-up area Sq.Ft"
+                value={form.overviewBuiltupAreaSqFt}
+                onChange={(event) => setForm((previous) => ({ ...previous, overviewBuiltupAreaSqFt: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <input
@@ -1141,6 +1448,13 @@ function VillaProjectsAdmin({ token }) {
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
+            <textarea
+              placeholder="Other charges"
+              value={form.otherCharges}
+              onChange={(event) => setForm((previous) => ({ ...previous, otherCharges: event.target.value }))}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+            />
           </div>
         );
       case 'gallery':
@@ -1157,28 +1471,12 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-exterior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
-                <button type="button" onClick={() => clearMultiImages('exteriorImages')} className="text-sm text-accent">Clear</button>
+                <label htmlFor="villa-exterior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Exterior Images</label>
               </div>
-              {form.exteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.exteriorImages.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
-                      <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
-                      <div className="p-2">
-                        <p className="text-[11px] text-primary truncate">{item.name}</p>
-                        <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : form.existingExteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.existingExteriorImages.map((src, index) => (
-                    <img key={`${src}-${index}`} src={src} alt={`Exterior ${index + 1}`} className="h-24 w-full rounded-xl object-cover border border-gray-200" />
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-4 space-y-4">
+                {renderGalleryImageGrid('Selected exterior images', form.exteriorImages, 'exteriorImages', 'Exterior image')}
+                {renderGalleryImageGrid('Current exterior images', form.existingExteriorImages, 'existingExteriorImages', 'Exterior image')}
+              </div>
             </div>
             <div className="rounded-2xl border border-primary/15 bg-white p-4">
               <input
@@ -1191,28 +1489,12 @@ function VillaProjectsAdmin({ token }) {
                 id="villa-interior-upload"
               />
               <div className="flex flex-wrap items-center gap-3">
-                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
-                <button type="button" onClick={() => clearMultiImages('interiorImages')} className="text-sm text-accent">Clear</button>
+                <label htmlFor="villa-interior-upload" className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-primary bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90">Choose Interior Images</label>
               </div>
-              {form.interiorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.interiorImages.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
-                      <img src={item.previewUrl} alt={item.name} className="h-24 w-full object-cover" />
-                      <div className="p-2">
-                        <p className="text-[11px] text-primary truncate">{item.name}</p>
-                        <p className="text-[10px] text-textGrey">{formatFileSize(item.size)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : form.existingInteriorImages.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {form.existingInteriorImages.map((src, index) => (
-                    <img key={`${src}-${index}`} src={src} alt={`Interior ${index + 1}`} className="h-24 w-full rounded-xl object-cover border border-gray-200" />
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-4 space-y-4">
+                {renderGalleryImageGrid('Selected interior images', form.interiorImages, 'interiorImages', 'Interior image')}
+                {renderGalleryImageGrid('Current interior images', form.existingInteriorImages, 'existingInteriorImages', 'Interior image')}
+              </div>
             </div>
           </div>
         );
@@ -1276,98 +1558,125 @@ function VillaProjectsAdmin({ token }) {
       case 'amenities':
         return (
           <div className="space-y-4">
-            {form.amenities.map((item, index) => (
-              <div key={`amenity-${index}`} className="rounded-2xl border border-gray-200 bg-bgLight/40 p-4 space-y-4">
-                <div className="grid md:grid-cols-[1fr_1fr_auto] gap-3 items-start">
-                  <input
-                    type="text"
-                    placeholder="Title"
-                    value={item.title}
-                    onChange={(event) => setForm((previous) => {
-                      const nextValues = [...previous.amenities];
-                      nextValues[index] = { ...nextValues[index], title: event.target.value };
-                      return { ...previous, amenities: nextValues };
-                    })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Description"
-                    value={item.desc}
-                    onChange={(event) => setForm((previous) => {
-                      const nextValues = [...previous.amenities];
-                      nextValues[index] = { ...nextValues[index], desc: event.target.value };
-                      return { ...previous, amenities: nextValues };
-                    })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  <button type="button" onClick={() => removeArrayRow('amenities', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
-                </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-textGrey">Add amenities as cards, then open any card to edit its title, description, and icon.</p>
+              <button type="button" onClick={addAmenityRow} className="rounded-full bg-[#EF1C22] px-4 py-2 text-sm text-white hover:bg-opacity-90">
+                Add amenity
+              </button>
+            </div>
 
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <div className="relative flex-1">
-                      <FaMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-textGrey" />
-                      <input
-                        type="text"
-                        value={amenityIconSearches[index] || ''}
-                        onChange={(event) => setAmenityIconSearches((previous) => ({ ...previous, [index]: event.target.value }))}
-                        placeholder="Search icons"
-                        className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
-                      />
-                      {amenityIconSearches[index] ? (
-                        <button
-                          type="button"
-                          onClick={() => setAmenityIconSearches((previous) => ({ ...previous, [index]: '' }))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-textGrey hover:text-primary"
-                          aria-label="Clear icon search"
-                        >
-                          <FaXmark />
-                        </button>
-                      ) : null}
-                    </div>
-                    {getAmenityIconOption(item.icon) ? (
-                      <div className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm text-primary">
-                        {(() => {
-                          const SelectedIcon = getAmenityIconOption(item.icon)?.Icon;
-                          return SelectedIcon ? <SelectedIcon className="text-accent" /> : null;
-                        })()}
-                        <span>{getAmenityIconOption(item.icon)?.label}</span>
+            <div className="grid gap-4">
+              {form.amenities.map((item, index) => {
+                const selectedIconOption = getAmenityIconOption(item.icon);
+                const SelectedIcon = selectedIconOption?.Icon;
+                const isEditing = editingAmenityIndex === index;
+
+                return (
+                  <div key={`amenity-${index}`} className="rounded-2xl border border-gray-200 bg-bgLight/40 p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white border border-gray-200 text-accent">
+                          {SelectedIcon ? <SelectedIcon className="text-xl" /> : <FaCheck className="text-base text-textGrey" />}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-primary truncate">{item.title || 'Untitled amenity'}</h5>
+                          <p className="text-sm text-textGrey line-clamp-2">{item.desc || 'No description set yet.'}</p>
+                          <p className="mt-1 text-xs text-textGrey">{selectedIconOption?.label || 'No icon selected'}</p>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="text-sm text-textGrey px-1 py-3">No icon selected</div>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {filterAmenityIconOptions(amenityIconSearches[index] || '').map((option) => {
-                      const SelectedIcon = option.Icon;
-                      const isSelected = item.icon === option.key;
-
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          onClick={() => setForm((previous) => {
-                            const nextValues = [...previous.amenities];
-                            nextValues[index] = { ...nextValues[index], icon: option.key };
-                            return { ...previous, amenities: nextValues };
-                          })}
-                          className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10' : 'border-gray-200 bg-white hover:border-accent/50'}`}
-                        >
-                          <span className="flex items-center gap-2 min-w-0">
-                            <SelectedIcon className="shrink-0 text-accent" />
-                            <span className="truncate text-sm text-primary">{option.label}</span>
-                          </span>
-                          {isSelected ? <FaCheck className="shrink-0 text-accent" /> : null}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button type="button" onClick={() => (isEditing ? closeAmenityEditor() : openAmenityEditor(index))} className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs text-primary">
+                          {isEditing ? 'Done' : 'Edit'}
                         </button>
-                      );
-                    })}
+                        <button type="button" onClick={() => removeAmenityRow(index)} className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs text-red-600">
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-4 border-t border-gray-200 pt-4">
+                        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] items-start">
+                          <input
+                            type="text"
+                            placeholder="Title"
+                            value={item.title}
+                            onChange={(event) => updateAmenityField(index, 'title', event.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Description"
+                            value={item.desc}
+                            onChange={(event) => updateAmenityField(index, 'desc', event.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                          />
+                          <button type="button" onClick={() => updateAmenityField(index, 'icon', '')} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">
+                            Clear icon
+                          </button>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="relative flex-1">
+                              <FaMagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-textGrey" />
+                              <input
+                                type="text"
+                                value={amenityIconSearches[index] || ''}
+                                onChange={(event) => setAmenityIconSearches((previous) => ({ ...previous, [index]: event.target.value }))}
+                                placeholder="Search icons"
+                                className="w-full pl-11 pr-10 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                              />
+                              {amenityIconSearches[index] ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setAmenityIconSearches((previous) => ({ ...previous, [index]: '' }))}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-textGrey hover:text-primary"
+                                  aria-label="Clear icon search"
+                                >
+                                  <FaXmark />
+                                </button>
+                              ) : null}
+                            </div>
+                            {selectedIconOption ? (
+                              <div className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm text-primary">
+                                {SelectedIcon ? <SelectedIcon className="text-accent" /> : null}
+                                <span>{selectedIconOption.label}</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-textGrey px-1 py-3">No icon selected</div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {filterAmenityIconOptions(amenityIconSearches[index] || '').map((option) => {
+                              const AmenityIcon = option.Icon;
+                              const isSelected = item.icon === option.key;
+
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  onClick={() => updateAmenityIcon(index, option.key)}
+                                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors ${isSelected ? 'border-accent bg-accent/10' : 'border-gray-200 bg-white hover:border-accent/50'}`}
+                                >
+                                  <span className="flex items-center gap-2 min-w-0">
+                                    <AmenityIcon className="shrink-0 text-accent" />
+                                    <span className="truncate text-sm text-primary">{option.label}</span>
+                                  </span>
+                                  {isSelected ? <FaCheck className="shrink-0 text-accent" /> : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={() => addArrayRow('amenities', { ...EMPTY_AMENITY })} className="text-sm text-accent">Add amenity</button>
+                );
+              })}
+            </div>
           </div>
         );
       case 'availability':
@@ -1384,57 +1693,64 @@ function VillaProjectsAdmin({ token }) {
           </div>
         );
       case 'location':
+        {
+          const mapEmbedSrc = extractIframeSrc(form.mapLocationUrl);
+
         return (
           <div className="space-y-4">
-            <MapLocationPicker
-              value={form.mapLocationUrl}
-              searchValue={mapSearchValue}
-              onSearchValueChange={setMapSearchValue}
-              searchStatus={mapSearchStatus}
-              isSearching={isMapSearching}
-              onChange={(nextValue) => setForm((previous) => ({ ...previous, mapLocationUrl: nextValue }))}
-              onSearch={async () => {
-                const query = mapSearchValue.trim();
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <FaMapLocationDot className="text-accent" />
+                Paste Google Maps iframe code only
+              </div>
+              <textarea
+                rows={3}
+                placeholder="Paste full iframe embed code from Google Maps"
+                value={form.mapLocationUrl}
+                onChange={(event) => setForm((previous) => ({ ...previous, mapLocationUrl: event.target.value }))}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+              <p className="text-xs text-textGrey">
+                Simple step: open Google Maps, click Share, choose Embed a map, copy the iframe HTML, and paste it here.
+              </p>
+              {form.mapLocationUrl && !mapEmbedSrc ? (
+                <p className="text-xs text-red-600">
+                  Invalid input. Paste full iframe code containing a src attribute.
+                </p>
+              ) : null}
 
-                if (!query) {
-                  setMapSearchStatus('Enter a place, area, or landmark to search.');
-                  return;
-                }
+            </div>
 
-                setIsMapSearching(true);
-                setMapSearchStatus('Searching for the location...');
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-primary">Location scan image</p>
+                <input
+                  ref={locationScanInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleSingleFileSelection('locationScanImageFile', 'locationScanImageName', event)}
+                  className="w-full text-sm"
+                />
+                <p className="text-sm text-textGrey">
+                  {form.locationScanImageName || (form.projectDetails.locationScanImageUrl ? 'Current location scan image is set' : 'No file selected')}
+                </p>
+              </div>
 
-                try {
-                  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`);
-                  const results = await response.json();
-                  const result = Array.isArray(results) ? results[0] : null;
-
-                  if (!result) {
-                    setMapSearchStatus('No matching location found. Try a more specific search.');
-                    return;
-                  }
-
-                  const latitude = Number(result.lat);
-                  const longitude = Number(result.lon);
-                  const nextValue = buildMapUrl(latitude, longitude);
-
-                  setForm((previous) => ({ ...previous, mapLocationUrl: nextValue }));
-                  setMapSearchStatus(`Pinned ${result.display_name || 'the selected location'}.`);
-                } catch (_error) {
-                  setMapSearchStatus('Could not search the map right now. Try again later.');
-                } finally {
-                  setIsMapSearching(false);
-                }
-              }}
-            />
-            <textarea
-              placeholder="Other charges"
-              value={form.otherCharges}
-              onChange={(event) => setForm((previous) => ({ ...previous, otherCharges: event.target.value }))}
-              rows={3}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-            />
-            {form.locationAdvantages.map((item, index) => (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+                <p className="text-primary">RERA scan image</p>
+                <input
+                  ref={reraScanInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => handleSingleFileSelection('reraScanImageFile', 'reraScanImageName', event)}
+                  className="w-full text-sm"
+                />
+                <p className="text-sm text-textGrey">
+                  {form.reraScanImageName || (form.projectDetails.reraScanImageUrl ? 'Current RERA scan image is set' : 'No file selected')}
+                </p>
+              </div>
+            </div>
+             {form.locationAdvantages.map((item, index) => (
               <div key={`advantage-${index}`} className="flex gap-3">
                 <input
                   type="text"
@@ -1446,9 +1762,10 @@ function VillaProjectsAdmin({ token }) {
                 <button type="button" onClick={() => removeArrayRow('locationAdvantages', index)} className="px-4 py-3 rounded-xl border border-gray-300 text-sm text-red-600">Remove</button>
               </div>
             ))}
-            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button>
+            <button type="button" onClick={() => addArrayRow('locationAdvantages', '')} className="text-sm text-accent">Add location advantage</button> 
           </div>
         );
+      }
       case 'review':
       default:
         return (
@@ -1462,7 +1779,7 @@ function VillaProjectsAdmin({ token }) {
               <div className="rounded-xl bg-white border border-gray-200 p-4">
                 <p className="text-xs uppercase tracking-wide text-textGrey">Status</p>
                 <p className="mt-1 text-primary">{form.status}</p>
-                <p>{form.slug || 'Slug will be generated from name'}</p>
+                <p>{createSafeVillaSlug(form.slug, form.name) || 'Slug will be generated from name'}</p>
               </div>
             </div>
             <div className="rounded-xl bg-white border border-gray-200 p-4">
@@ -1488,7 +1805,7 @@ function VillaProjectsAdmin({ token }) {
           <button
             type="button"
             onClick={openNewForm}
-            className="inline-flex items-center justify-center rounded-full bg-[#C6A769] text-white px-4 py-2 text-sm hover:bg-opacity-90"
+            className="inline-flex items-center justify-center rounded-full bg-[#EF1C22] text-white px-4 py-2 text-sm hover:bg-opacity-90"
           >
             Add New Villa
           </button>
@@ -1499,7 +1816,12 @@ function VillaProjectsAdmin({ token }) {
         <form onSubmit={submitVilla} onKeyDown={handleFormKeyDown} className="bg-bgLight rounded-2xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-2xl text-primary">{form.id ? 'Edit Villa' : 'Create Villa'}</h3>            </div>
+              <h3 className="text-2xl text-primary">
+                {form.id
+                  ? `Edit ${form.name.trim() ? `${form.name.trim()}` : 'Villa'}`
+                  : `Create ${form.name.trim() ? `${form.name.trim()}` : 'Villa'}`}
+              </h3>
+            </div>
             <button type="button" onClick={closeForm} className="text-sm text-accent">Close</button>
           </div>
 
@@ -1517,7 +1839,7 @@ function VillaProjectsAdmin({ token }) {
                 }}
                 disabled={index > 0 && !isBasicComplete}
                 className={`rounded-full px-3 py-2 text-xs transition-colors ${activeStep === index
-                    ? 'bg-[#C6A769] text-white'
+                    ? 'bg-[#EF1C22] text-white'
                     : index > 0 && !isBasicComplete
                       ? 'bg-white text-primary border border-gray-200 opacity-45 cursor-not-allowed'
                       : 'bg-white text-primary border border-gray-200'
@@ -1625,6 +1947,55 @@ function VillaProjectsAdmin({ token }) {
         </table>
         {!isLoading && villas.length === 0 ? <p className="text-sm text-textGrey mt-3">No villas yet.</p> : null}
       </div>
+
+      {showPasswordConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-lg">
+            <h3 className="text-lg text-primary font-semibold mb-2">Confirm Deletion</h3>
+            <p className="text-sm text-textGrey mb-6">
+              To confirm deletion of this villa and all its assets, please enter your login password.
+            </p>
+            
+            <form onSubmit={confirmDeleteWithPassword} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={passwordConfirmInput}
+                  onChange={(event) => {
+                    setPasswordConfirmInput(event.target.value);
+                    setPasswordConfirmError('');
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-accent"
+                  disabled={isVerifyingPassword}
+                  autoFocus
+                />
+                {passwordConfirmError ? (
+                  <p className="text-xs text-red-600 mt-2">{passwordConfirmError}</p>
+                ) : null}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={cancelPasswordConfirm}
+                  disabled={isVerifyingPassword}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-300 text-sm text-textGrey disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingPassword}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-50"
+                >
+                  {isVerifyingPassword ? 'Verifying...' : 'Delete'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

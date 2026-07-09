@@ -38,6 +38,16 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   INDEX idx_admin_sessions_admin_user_id (admin_user_id)
 );
 
+CREATE TABLE IF NOT EXISTS media_assets (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  file_name VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL,
+  file_size INT UNSIGNED NOT NULL,
+  data LONGBLOB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_media_assets_created_at (created_at)
+);
+
 CREATE TABLE IF NOT EXISTS blogs (
   id INT PRIMARY KEY AUTO_INCREMENT,
   slug VARCHAR(180) NOT NULL UNIQUE,
@@ -53,6 +63,21 @@ CREATE TABLE IF NOT EXISTS blogs (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_blogs_published_at (published_at),
   INDEX idx_blogs_is_published (is_published)
+);
+
+CREATE TABLE IF NOT EXISTS hero_slides (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(255) NOT NULL,
+  subtitle VARCHAR(500) NULL,
+  cta_text VARCHAR(120) NULL,
+  link_url VARCHAR(500) NULL,
+  image_url VARCHAR(500) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_hero_slides_is_active_sort_order (is_active, sort_order),
+  INDEX idx_hero_slides_updated_at (updated_at)
 );
 
 CREATE TABLE IF NOT EXISTS gallery_entries (
@@ -94,6 +119,7 @@ CREATE TABLE IF NOT EXISTS villas (
   acres VARCHAR(80) NULL,
   total_villas VARCHAR(80) NULL,
   banner_image_url VARCHAR(500) NULL,
+  project_logo_url VARCHAR(500) NULL,
   status ENUM('draft', 'ongoing', 'upcoming', 'completed') NOT NULL DEFAULT 'draft',
   brochure_pdf_url VARCHAR(500) NULL,
   description LONGTEXT NULL,

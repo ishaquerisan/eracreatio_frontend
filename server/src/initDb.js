@@ -95,7 +95,18 @@ async function initDb() {
         INDEX idx_admin_sessions_admin_user_id (admin_user_id)
       )`,
 
-      // 5. Blogs
+      // 5. Media Assets
+      `CREATE TABLE IF NOT EXISTS media_assets (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        file_name VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(120) NOT NULL,
+        file_size INT UNSIGNED NOT NULL,
+        data LONGBLOB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_media_assets_created_at (created_at)
+      )`,
+
+      // 6. Blogs
       `CREATE TABLE IF NOT EXISTS blogs (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -113,7 +124,23 @@ async function initDb() {
         INDEX idx_blogs_is_published (is_published)
       )`,
 
-      // 6. Gallery Entries
+      // 7. Hero Slides
+      `CREATE TABLE IF NOT EXISTS hero_slides (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        title VARCHAR(255) NOT NULL,
+        subtitle VARCHAR(500) NULL,
+        cta_text VARCHAR(120) NULL,
+        link_url VARCHAR(500) NULL,
+        image_url VARCHAR(500) NOT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_hero_slides_is_active_sort_order (is_active, sort_order),
+        INDEX idx_hero_slides_updated_at (updated_at)
+      )`,
+
+      // 8. Gallery Entries
       `CREATE TABLE IF NOT EXISTS gallery_entries (
         id INT PRIMARY KEY AUTO_INCREMENT,
         gallery_type ENUM('independent', 'commercial') NOT NULL,
@@ -127,7 +154,7 @@ async function initDb() {
         INDEX idx_gallery_type_category (gallery_type, category)
       )`,
 
-      // 7. Commercial Projects
+      // 9. Commercial Projects
       `CREATE TABLE IF NOT EXISTS commercial_projects (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -144,7 +171,7 @@ async function initDb() {
         INDEX idx_commercial_projects_category (category)
       )`,
 
-      // 8. Villas
+      // 10. Villas
       `CREATE TABLE IF NOT EXISTS villas (
         id INT PRIMARY KEY AUTO_INCREMENT,
         slug VARCHAR(180) NOT NULL UNIQUE,
@@ -153,6 +180,7 @@ async function initDb() {
         acres VARCHAR(80) NULL,
         total_villas VARCHAR(80) NULL,
         banner_image_url VARCHAR(500) NULL,
+        project_logo_url VARCHAR(500) NULL,
         status ENUM('draft', 'ongoing', 'completed') NOT NULL DEFAULT 'draft',
         brochure_pdf_url VARCHAR(500) NULL,
         description LONGTEXT NULL,
@@ -189,6 +217,17 @@ async function initDb() {
       `ALTER TABLE villas
        MODIFY status ENUM('draft', 'ongoing', 'upcoming', 'completed') NOT NULL DEFAULT 'draft'`,
     );
+
+    const [projectLogoColumns] = await pool.query(
+      `SHOW COLUMNS FROM villas LIKE 'project_logo_url'`
+    );
+
+    if (projectLogoColumns.length === 0) {
+      await pool.query(
+        `ALTER TABLE villas
+         ADD COLUMN project_logo_url VARCHAR(500) NULL AFTER banner_image_url`
+      );
+    }
 
     console.log("🚀 Database schema verified/initialized.");
     

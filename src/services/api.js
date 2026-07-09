@@ -1,4 +1,40 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
+
+function normalizeMediaValue(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return value;
+  }
+
+  if (trimmedValue.startsWith('http://') || trimmedValue.startsWith('https://')) {
+    return trimmedValue;
+  }
+
+  if (trimmedValue.startsWith('/uploads/') || trimmedValue.startsWith('/api/media/')) {
+    return `${API_ORIGIN}${trimmedValue}`;
+  }
+
+  return value;
+}
+
+function normalizeApiResponseMedia(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeApiResponseMedia(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeApiResponseMedia(entry)])
+    );
+  }
+
+  return normalizeMediaValue(value);
+}
 
 async function request(path, options = {}) {
   const {
@@ -35,7 +71,7 @@ async function request(path, options = {}) {
     throw new Error(data.message || 'Request failed.');
   }
 
-  return data;
+  return normalizeApiResponseMedia(data);
 }
 
 export function postNewsletterSubscription(payload) {
@@ -58,6 +94,10 @@ export function getPublishedBlogs() {
 
 export function getPublicGalleries() {
   return request('/galleries');
+}
+
+export function getPublicHeroSlides() {
+  return request('/hero-slides');
 }
 
 export function getPublicCommercialProjects() {
@@ -98,6 +138,14 @@ export function getAdminProfile(token) {
   return request('/admin/me', { token });
 }
 
+export function verifyAdminPassword(token, password) {
+  return request('/admin/verify-password', {
+    method: 'POST',
+    token,
+    payload: { password },
+  });
+}
+
 export function getAdminNewsletterSubscriptions(token) {
   return request('/admin/newsletter-subscriptions', { token });
 }
@@ -119,6 +167,10 @@ export function getAdminBlogs(token) {
 
 export function getAdminGalleryEntries(token) {
   return request('/admin/gallery-entries', { token });
+}
+
+export function getAdminHeroSlides(token) {
+  return request('/admin/hero-slides', { token });
 }
 
 export function getAdminCommercialProjects(token) {
@@ -149,6 +201,37 @@ export function deleteAdminGalleryEntry(token, entryId) {
   return request(`/admin/gallery-entries/${entryId}`, {
     method: 'DELETE',
     token,
+  });
+}
+
+export function createAdminHeroSlide(token, payload) {
+  return request('/admin/hero-slides', {
+    method: 'POST',
+    token,
+    payload,
+  });
+}
+
+export function updateAdminHeroSlide(token, slideId, payload) {
+  return request(`/admin/hero-slides/${slideId}`, {
+    method: 'PUT',
+    token,
+    payload,
+  });
+}
+
+export function deleteAdminHeroSlide(token, slideId) {
+  return request(`/admin/hero-slides/${slideId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export function reorderAdminHeroSlides(token, slideIds) {
+  return request('/admin/hero-slides/reorder', {
+    method: 'POST',
+    token,
+    payload: { slideIds },
   });
 }
 
